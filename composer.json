@@ -1,15 +1,13 @@
 {
-  "require" : {
-    "php": "^5.6.0",
-    "ext-imagick": "*",
-    "silex/silex": "^2.0.4",
-    "monolog/monolog": "^1.22",
-    "twig/twig": "^2.0",
-    "symfony/twig-bridge": "^3", 
-   "ext-mbstring": "*"
-   },
-  "require-dev": {
-    "heroku/heroku-buildpack-php": "*"
-  }
+    "require": {
+        "php": ">=5.4.0",
+         "ext-imagick": "*",
+        "silex/silex": "~1.0@dev"
+    },
+    "extra": {
+        "heroku": {
+            "document-root": "web",
+            "index-document": "index.php"
+        }
+    }
 }
-

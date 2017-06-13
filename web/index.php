@@ -1,1460 +1,2300 @@
 <?php
-/**
- * 程序说明
- * @package   FileBox
- * @author    Jooies <jooies@ya.ru>
- * @copyright Copyright (c) 2014-2016
- * @since     Version 1.10.0.1
- *
- * 设置说明  
- * $sitetitle - 标题名称
- * $user - 用户名
- * $pass - 密码
- * $safe_num - 设置多少次后禁止登陆，为0则不限制，建议为3-5
- * $mail - 若有恶意登录，会发邮件到这个邮箱，前提是mail()函数可用！
- */
-header('Content-Type: text/html; charset=utf-8');
-date_default_timezone_set('Asia/Shanghai');
-session_start();
-error_reporting(1);
-$sitetitle = 'FileBox';
-$user = 'filebox';
-$pass = 'filebox';
-$safe_num = 0;//设置多少次后禁止登陆，为0则不限制，建议为3-5
-$mail = 'i@hezi.be';//若有恶意登录，会发邮件到这个邮箱，前提是mail()函数可用！
-$meurl = $_SERVER['PHP_SELF'];
-$os = (DIRECTORY_SEPARATOR=='\\')?"windows":'linux';
-$op = (isset($_REQUEST['op']))?htmlentities($_REQUEST['op']):'home';
-$action = (isset($_REQUEST['action']))?htmlspecialchars($_REQUEST['action']):'';
-$folder = (isset($_REQUEST['folder']))?htmlspecialchars($_REQUEST['folder']):'./';
-$arr = str_split($folder);
-if($arr[count($arr)-1]!=='/')$folder .= '/';
-while(preg_match('/\.\.\//',$folder))$folder = preg_replace('/\.\.\//','/',$folder);
-while(preg_match('/\/\//',$folder))$folder = preg_replace('/\/\//','/',$folder);
-if($folder == '')$folder = "./";
-$ufolder = $folder;
-if($_SESSION['error'] > $safe_num && $safe_num !== 0)printerror('您已经被限制登陆！');
 
-/****************************************************************/
-/* 用户登录函数                                                 */
-/*                                                              */
-/* 需要浏览器开启Cookies才可使用                                */
-/****************************************************************/
 
-if ($_COOKIE['user'] != $user || $_COOKIE['pass'] != md5($pass)) {
-	if (htmlspecialchars($_REQUEST['user']) == $user && htmlspecialchars($_REQUEST['pass']) == $pass) {
-	    setcookie('user',$user,time()+60*60*24*1);
-	    setcookie('pass',md5($pass),time()+60*60*24*1);
-	}else{
-		if (htmlspecialchars($_REQUEST['user']) == $user || htmlspecialchars($_REQUEST['pass'])) $er = true;
-		login($er);
-    exit;
+error_reporting(0); //抑制所有错误信息
+@header("content-Type: text/html; charset=utf-8"); //语言强制
+ob_start();
+date_default_timezone_set('Asia/Shanghai');//此句用于消除时间差
+
+$title = 'PHP探针';
+
+$version = "v0.4.7"; //版本号
+
+
+
+define('HTTP_HOST', preg_replace('~^www\.~i', '', $_SERVER['HTTP_HOST']));
+
+
+
+$time_start = microtime_float();
+
+
+
+function memory_usage() 
+{
+
+	$memory	 = ( ! function_exists('memory_get_usage')) ? '0' : round(memory_get_usage()/1024/1024, 2).'MB';
+
+	return $memory;
+
+}
+
+
+// 计时
+
+function microtime_float() 
+{
+
+	$mtime = microtime();
+
+	$mtime = explode(' ', $mtime);
+
+	return $mtime[1] + $mtime[0];
+
+}
+
+
+//单位转换
+function formatsize($size) 
+{
+	$danwei=array(' B ',' K ',' M ',' G ',' T ');
+	$allsize=array();
+	$i=0;
+
+	for($i = 0; $i <5; $i++) 
+	{
+		if(floor($size/pow(1024,$i))==0){break;}
 	}
+
+	for($l = $i-1; $l >=0; $l--) 
+	{
+		$allsize1[$l]=floor($size/pow(1024,$l));
+		$allsize[$l]=$allsize1[$l]-$allsize1[$l+1]*1024;
+	}
+
+	$len=count($allsize);
+
+	for($j = $len-1; $j >=0; $j--) 
+	{
+		$fsize=$fsize.$allsize[$j].$danwei[$j];
+	}	
+	return $fsize;
 }
 
 
-/****************************************************************/
-/* function maintop()                                           */
-/*                                                              */
-/* 控制站点的样式和头部内容                                     */
-/* $title -> 顶部标题 $showtop -> 是否显示头部菜单              */
-/****************************************************************/
+function valid_email($str) 
+{
 
-function maintop($title,$showtop = true) {
-    global $meurl,$sitetitle,$op;
-    echo "<!DOCTYPE html>\n<meta name='robots' content='noindex,follow' />\n<head>\n<meta name='viewport' content='width=device-width, initial-scale=1'/>\n"
-        ."<title>$sitetitle - $title</title>\n"
-        ."</head>\n"
-        ."<body>\n"
-        ."<style>\n*{font-family:'Verdana','Microsoft Yahei';}.box{border:1px solid #ccc;background-color:#fff;padding:10px;}abbr{text-decoration:none;}.title{border:1px solid #ccc;border-bottom:0;font-weight:normal;text-align:left;width:678px;padding:10px;font-size:12px;color:#666;background-color:#F0F0F0;}.right{float:right;text-align:right !important;}.content{width:700px;margin:auto;overflow:hidden;font-size:13px;}.login_button{height:43px;line-height:18px;font-family:'Candara';}.login_text{font-family:'Candara','Microsoft Yahei';vertical-align:middle;padding:7px;width:40%;font-size:22px;border:1px #ccc solid;}input[type=text]:focus,input[type=password]:hover{outline:0;background-color:#f8f8f8;}input[type=text]:hover,input[type=password]:hover,input[type=password]:active{outline:0;background-color:#f8f8f8;}h2{color:#514f51;text-align:center;margin:16px 0;font-size:48px;background-image: -webkit-gradient(linear, 0 0, 0 bottom, from(#7d7d7d), to(#514f51));-webkit-background-clip: text;background-clip: text;-webkit-text-fill-color: transparent;font-family:'Candara','Lucida Sans','Microsoft Yahei' !important;}span{margin-bottom:8px;}a:visited{color:#333;text-decoration:none;}a:hover{color:#999;text-decoration:none;}a{color:#333;text-decoration:none;border-bottom:1px solid #CCC;}a:active{color:#999;text-decoration:none;}.title a,td a,.menu a{border:0}textarea{outline:none;font-family:'Yahei Consolas Hybrid',Consolas,Verdana,Tahoma,Arial,Helvetica,'Microsoft Yahei',sans-serif !important;font-size:13px;border:1px solid #ccc;margin-top:-1px;padding:8px;line-height:18px;width:682px;max-width:682px;}input.button{background-color:#eeeeee;text-align:center !important;outline:none;border:1px solid #adadad;*display:inline;color:#000;padding:3px 18px;font-size:13px;margin-top:10px;transition: border-color 0.5s;}input.button:hover{background-color:#e5f1fb;border-color:#0078d7;}input.mob{padding:3px 40px;}input.text,select,option,.upload{border:1px solid #ccc;margin:6px 1px;padding:5px;font-size:13px;height:16px;}body{background-color:#fff;margin:0px 0px 10px;}.error{font-size:10pt;color:#AA2222;text-align:left}.menu{position:fixed;font-size:13px;}.menu li{list-style-type:none;padding:7px 25px;border-left:#fff solid 3px;margin-bottom:2px;}.menu li.curr{border-left:#666 solid 3px;background-color:#f7f7f7;} .menu li:hover{border-color:#469;background-color:#ededed;}.odTable span {cursor:pointer;}.odTable b{color:#ccc;font-size:12px;}.menu a:hover{color:#707070;}.table{background-color:#777;color:#fff;}th{text-align:left;height:40px;line-height:40px;border-bottom:3px solid #dbdbdb;font-size:14px;background-color:#f8f8f8 !important;}table{border:1px solid #ccc;border-collapse:collapse;}tr{color:#666;height:31px;font-size:12px;}tr a{color:#333}th{color:#333;}tr:nth-child(odd){background-color:#fff;}tr:nth-child(even){background-color:#f5f5f7;}tr:hover{background-color:#ebeced;}.upload{width:50%;}.home,.com{display:none;}.long{width:70%}.short{width:20%}.open{width:40px;}.rename{width:50px;}\n@media handheld, only screen and (max-width: 960px) {textarea{width: calc(100% - 18px);max-width: calc(100% - 18px);}.upload{width:calc(100% - 18px);}.login_button{width: 100%;margin-top:0 !important;padding:20px 5px !important;height:60px;font-size:23px !important;}.login_text{display: block;margin-bottom: 0;padding:20px 10px;width: 100%;border-bottom:0;}.menu{margin-left: -40px;position: static;padding:0;}.menu li{padding-bottom: 8px;}.title{width:calc(100% - 22px);}input.mob{height:40px;font-size:15px;width:100%;display:block;}.content{width:100%}input.button{padding:3px 10px;}.mobile b,.mobi{display:none;}.com{display:inline;}th{font-weight:normal;font-size:12px;}.open,.rename{width:25px;}}</style>\n";
-    $back=($op!=='home')?$back = "<a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'><li>返回 ".$_SESSION['folder']."</li></a>\n":$back = '';
-    echo "<h2>$sitetitle</h2>\n";
-    if ($showtop) {//头部菜单内容
-      if($op=='up'||$op=='upload'||$op=='yupload')$up = "class='curr'";if($op=='home'||$op =='edit'||$op =='ren'||$op =='unz')$home = "class='curr'";if($op=='cr'||$op=='create')$cr = "class='curr'";if($op=='sqlb'||$op=='sqlbackup')$sqlb = "class='curr'";if($op=='ftpa'||$op=='ftpall')$ftpa = "class='curr'";
-        echo "<div class='menu'>\n<ul><a href='{$meurl}?op=home'><li $home>主页</li></a>\n"
-            .$back
-            ."<a href='{$meurl}?op=up'><li $up>上传文件</li></a>\n"
-            ."<a href='{$meurl}?op=cr'><li $cr>创建文件</li></a>\n"
-            ."<a href='{$meurl}?op=sqlb'><li $sqlb>MySQL备份</li></a>\n"
-            ."<a href='{$meurl}?op=ftpa'><li $ftpa>FTP备份</li></a>\n"
-            ."<a href='{$meurl}?op=logout'><li>注销</li></a>\n"
-            ."</ul></div>";
-    }
-    echo "<div class='content'>\n";
+	return ( ! preg_match("/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix", $str)) ? FALSE : TRUE;
+
 }
 
 
-/****************************************************************/
-/* function login()                                             */
-/*                                                              */
-/* 登录验证 $user and md5($pass)                                */
-/* 需要浏览器支持Cookie                                         */
-/****************************************************************/
+//检测PHP设置参数
 
-function login($er=false) {
-    global $meurl,$op,$safe_num,$mail;
-    setcookie("user","",time()-60*60*24*1);
-    setcookie("pass","",time()-60*60*24*1);
-    maintop("登录",false);
-    if ($er) { 
-        if (isset($_SESSION['error'])){
-            $_SESSION['error']++;
-            if($_SESSION['error'] > $safe_num && $safe_num !== 0){
-                mail($mail,'FileBox文件管理器提醒：文件被恶意登录！','该提醒来自FileBox：<br>登录者IP为：'.$_SERVER['REMOTE_ADDR'],'From: <i@hezi.be>');
-                echo ('<span class="error">ERROR: 您已经被限制登陆！</span>');
-                exit;
-            }
-        }else{
-            $_SESSION['error'] = 1;
-        }
-        echo "<span class=error>用户名或密码错误！</span><br>\n"; 
-    }
-    echo "<form action='{$meurl}?op=".$op."' method='post'>\n"
-        ."<input type='text' name='user' border='0' class='login_text' placeholder='请输入用户名'>\n"
-        ."<input type='password' name='pass' border='0' class='login_text' placeholder='请输入密码'>\n"
-        ."<input type='submit' name='submitButtonName' value='LOGIN' border='0' class='login_button button'>\n"
-        ."</form>\n";
-    mainbottom();
+function show($varName)
+{
+
+	switch($result = get_cfg_var($varName))
+	{
+
+		case 0:
+
+			return '<font color="red"><i class="fa fa-times"></i></font>';
+
+		break;
+		
+
+		case 1:
+
+			return '<font color="green"><i class="fa fa-check"></i></font>';
+
+		break;
+		
+
+		default:
+
+			return $result;
+
+		break;
+
+	}
+
 }
 
 
-/****************************************************************/
-/* function home()                                              */
-/*                                                              */
-/* Main function that displays contents of folders.             */
-/****************************************************************/
 
-function home() {
-    global $os, $meurl ,$folder, $ufolder;
+//保留服务器性能测试结果
 
-    $content1 = "";
-    $content2 = "";
+$valInt = isset($_POST['pInt']) ? $_POST['pInt'] : "未测试";
 
-    $folder = gCode($folder);
-    if(opendir($folder)){$style = opendir($folder);}else{printerror("目录不存在！\n");exit;}
-    $a=1;$b=1;
+$valFloat = isset($_POST['pFloat']) ? $_POST['pFloat'] : "未测试";
 
-    if($folder)$_SESSION['folder']=$ufolder;
+$valIo = isset($_POST['pIo']) ? $_POST['pIo'] : "未测试";
 
-    maintop("主页");
-    echo '<script>var order;function generateCompareTRs(iCol,sDataType,iOrder){return function compareTRs(oTR1,oTR2){vValue1=convert(oTR1.cells[iCol].getAttribute(iOrder),sDataType);vValue2=convert(oTR2.cells[iCol].getAttribute(iOrder),sDataType);order=iOrder;if(vValue1<vValue2){return -1}else{if(vValue1>vValue2){return 1}else{return 0}}}}function convert(sValue,sDataType){switch(sDataType){case"int":return parseInt(sValue);default:return sValue.toString()}}function sortTable(iOrder,iCol,sDataType){var oTable=document.getElementById("tblSort");var oTBody=oTable.tBodies[0];var colDataRows=oTBody.rows;var aTRs=new Array;for(var i=0;i<colDataRows.length;i++){aTRs[i]=colDataRows[i]}if(oTable.sortCol==iCol & iOrder==order){aTRs.reverse()}else{aTRs.sort(generateCompareTRs(iCol,sDataType,iOrder))}var oFragment=document.createDocumentFragment();for(var j=0;j<aTRs.length;j++){oFragment.appendChild(aTRs[j])}oTBody.appendChild(oFragment);oTable.sortCol=iCol;}</script>';
-    echo "<form method='post'><table border='0' cellpadding='2' cellspacing='0' width=100% class='mytable odTable' id='tblSort'>\n";
-    while($stylesheet = readdir($style)) {
-    $ufolder = $folder;
-    $sstylesheet = $stylesheet;
-    if($os!=='windows'):$qx = "<td>".substr(sprintf('%o',fileperms($ufolder.$sstylesheet)), -3)."</td>";$xx='<td></td>';else:$qx = '';$xx='';endif;
-    if ($stylesheet !== "." && $stylesheet !== ".." ) {
-        $stylesheet = uCode($stylesheet);
-        $folder = uCode($folder);
-        $trontd = "<tr width=100% onclick='st=document.getElementById(\"$stylesheet\").checked;if(st==true){document.getElementById(\"$stylesheet\").checked=false;this.style.backgroundColor=\"\";}else{document.getElementById(\"$stylesheet\").checked=true;this.style.backgroundColor=\"#e3e3e5\";}'><td><svg width='21' height='21'>";
-        $rename = "<td><a href='{$meurl}?op=ren&file=".htmlspecialchars($stylesheet)."&folder=$folder'><span class='com'>💽</span><span class='mobi'>重命名</span></a></td>\n";
-        if (is_dir(gCode($folder.$stylesheet)) && is_readable(gCode($folder.$stylesheet))) {
-            $content1[$a] = "$trontd<rect width='10px' height='14' style='fill:#ffe792' stroke='#e6c145' stroke-width='0.5' x='4' y='4'/><rect width='2px' height='5px' style='fill:#ffe792' stroke='#e6c145' stroke-width='0.5' x='13' y='13'/></svg><input name='select_item[d][$stylesheet]'  type='checkbox' id='$stylesheet' class='checkbox home' value='{$folder}{$stylesheet}' /></td>\n"
-                           ."<td _order='1{$stylesheet}'' _ext='1' _time='1'><a href='{$meurl}?op=home&folder={$folder}{$stylesheet}/' title='".gettime($folder.$stylesheet)."'>{$stylesheet}</a></td>\n"
-                           ."<td _size='1'>".Size(dirSize($folder.$stylesheet))."</td>"
-                           ."<td><span class='mobi'><a href='{$meurl}?op=home&folder=".htmlspecialchars($folder.$stylesheet)."/'>打开</a><span></td>\n"
-                           .$rename
-                           ."<td><a href='{$folder}{$stylesheet}' target='_blank'><span class='com'>🔍</span><span class='mobi'>查看</span></a></td>\n"
-                           .$qx."</tr>\n";
-            $a++;
-            $folder = gCode($folder);
-        }elseif(!is_dir(gCode($folder.$stylesheet)) && is_readable(gCode($folder.$stylesheet))){
-        $arr = explode('.',$folder.$stylesheet);
-        $arr = end($arr);
-        if($arr == 'zip'){#判断是否是zip文件
-            $filesizeme = filesize($ufolder.$sstylesheet);
-            $content2[$b] = "$trontd<rect width='12' height='10' style='fill:#85d3f9' stroke='#48b8f4' stroke-width='0.5' x='3' y='4'/><rect width='12' height='2' style='fill:#fc8f24' stroke='#d66e1a' stroke-width='0.5' x='3' y='14'/><rect width='12' height='2' style='fill:#83d12a' stroke='#579714' stroke-width='0.5' x='3' y='16'/><rect width='2' height='14' style='fill:#763207' stroke='#97460b' stroke-width='0.5' x='11' y='4'/></svg><input name='select_item[f][$stylesheet]' type='checkbox' id='$stylesheet' onpropertychange='if(this.checked=false){this.parentNode.parentNode.style.backgroundColor='#e3e3e5';}else{this.parentNode.parentNode.style.backgroundColor='';}' class='checkbox home' value='{$folder}{$stylesheet}' /></td>\n"
-                           ."<td _order='3{$stylesheet}'' _ext='3{$arr}'' _time='".(filemtime($folder.$stylesheet)+3)."''><a href='{$folder}{$stylesheet}' title='".gettime($folder.$stylesheet)."' target='_blank'>{$stylesheet}</a></td>\n"
-                           ."<td _size='".($filesizeme+3)."''>".Size($filesizeme)."</td>"
-                           ."<td></td>\n"
-                           .$rename
-                           ."<td><a href='{$meurl}?op=unz&dename=".htmlspecialchars($stylesheet)."&folder=$folder'><span class='com'>🎁</span><span class='mobi'>提取</span></a></td>\n"
-                           .$qx."</tr>\n";
-        }elseif($arr == 'gif'||$arr == 'jpg'||$arr == 'png'||$arr == 'bmp'||$arr == 'png5'||$arr == 'psd'||$arr == 'webp'||$arr == 'gz'||$arr == 'gzip'){
-            $filesizeme = filesize($ufolder.$sstylesheet);
-            $content2[$b] = "$trontd<rect width='10px' height='14' style='fill:#f8f9f9' stroke='#8f9091' stroke-width='0.5' x='4' y='4'/><rect width='2px' height='3px' style='fill:#f8f9f9' stroke='#8f9091' stroke-width='0.5' x='12' y='4'/><rect width='6' height='5px' style='fill:#f8f9f9' stroke='#438bd4' stroke-width='0.5' x='6' y='8'/><rect width='6' height='2px' style='fill:#438bd4' stroke='#438bd4' stroke-width='0.5' x='6' y='13'/></svg><input name='select_item[f][$stylesheet]' type='checkbox' id='$stylesheet' class='checkbox home' value='{$folder}{$stylesheet}' /></td>\n"
-                           ."<td _order=\"3{$stylesheet}\" _ext=\"3{$arr}\" _time=\"".(filemtime($folder.$stylesheet)+3)."\"><a href='{$folder}{$stylesheet}' title='".gettime($folder.$stylesheet)."' target='_blank'>{$stylesheet}</a></td>\n"
-                           ."<td _size=\"".($filesizeme+3)."\">".Size($filesizeme)."</td>"
-                           ."<td></td>\n"
-                           .$rename
-                           ."<td><a href='{$folder}{$stylesheet}' target='_blank'><span class='com'>🔍</span><span class='mobi'>查看</span></a></td>\n"
-                           .$qx."</tr>\n";
-        }else{
-          $filesizeme = filesize($ufolder.$sstylesheet);
-            $content2[$b] = "$trontd<rect width='10px' height='14' style='fill:#f8f9f9' stroke='#8f9091' stroke-width='0.5' x='4' y='4'/><rect width='2px' height='3px' style='fill:#f8f9f9' stroke='#8f9091' stroke-width='0.5' x='12' y='4'/></svg><input name='select_item[f][$stylesheet]' type='checkbox' id='$stylesheet' class='checkbox home' value='{$folder}{$stylesheet}' /></td>\n"
-                           ."<td _order='3{$stylesheet}' _ext='3{$arr}' _time='".(filemtime($folder.$stylesheet)+3)."'><a href='{$folder}{$stylesheet}' title='".gettime($folder.$stylesheet)."' target='_blank'>{$stylesheet}</a></td>\n"
-                           ."<td _size='".($filesizeme+3)."'>".Size(filesize($ufolder.$sstylesheet))."</td>"
-                           ."<td><a href='{$meurl}?op=edit&fename=".htmlspecialchars($stylesheet)."&folder=$folder'><span class='com'>📝</span><span class='mobi'>编辑</span></a></td>\n"
-                           .$rename
-                           ."<td><a href='{$folder}{$stylesheet}' target='_blank'><span class='com'>🔍</span><span class='mobi'>查看</span></a></td>\n"
-                           .$qx."</tr>\n";
-        }
-        $b++;
-        $folder = gCode($folder);
-    }
-    } 
-}
-    closedir($style);
 
-    $lu = explode('/', $_SESSION['folder']);
-    array_pop($lu);
-    $u = '';
-    echo '<div class="title">';
-    foreach ($lu as $v) {
-        $u = $u.$v.'/';
-        if($v=='.'){$v='主页';}elseif($v==''){$v='根目录';}
-        echo '<a href="'.$meurl.'?op=home&folder='.$u.'">'.$v.'</a> » ';
-    }
-    echo "文件\n"
-        ."<span class='right'>",$a-1," 个文件夹 ",$b-1," 个文件</span></div>"
-        ."<div style='position:fixed;bottom:0;margin-left:3px;'><input type='checkbox' id='check' onclick='Check()'> <input class='button' name='action' type='submit' value='移动' /> <input class='button' name='action' type='submit' value='复制' /> <input class='button' name='action' type='submit' onclick='return confirm(\"点击确认后，选中的文件将作为Backup-time.zip创建！\")'  value='压缩' /> <input class='button' name='action' type='submit' onclick='return confirm(\"您真的要删除选中的文件吗?\")' value='删除' /> <input class='button' name='action' type='submit' onclick='var t=document.getElementById(\"chmod\").value;return confirm(\"将这些文件的权限修改为\"+t+\"？如果是文件夹，将会递归文件夹内所有内容！\")' value='权限' /> <input type='text' class='text' stlye='vertical-align:text-top;' size='3' id='chmod' name='chmod' value='0755'></div>";
 
-    if($os!=='windows'):$qx = "<th width=40>权限</th>\n";else:$qx = '';endif;
-    echo "<thead><span id='idCheckbox'></span><tr class='headtable' width=100%>"
-        ."<script>function Check(){collid=document.getElementById('check');coll=document.getElementsByTagName('input');if(collid.checked){for(var i=0;i<coll.length;i++){if(coll[i].type=='checkbox'){coll[i].checked=true;coll[i].parentNode.parentNode.style.backgroundColor='#e3e3e5';}}}else{for(var i=0;i<coll.length;i++){if(coll[i].type=='checkbox'){coll[i].checked=false;coll[i].parentNode.parentNode.style.backgroundColor='';}}}}</script>"
-       ."<th width=20px></th>\n"
-       ."<th style='width: calc(100% - 225px);'><div class='mobile'><span onclick=\"sortTable('_order',1);\">文件名</span> <b>/</b> <span onclick=\"sortTable('_ext',1);\">类型 <b>/</b></span> <span onclick=\"sortTable('_time',1,'int');\">时间</span></div></th>\n"
-       ."<th width=65px><span onclick=\"sortTable('_size',2,'int');\">大小</span></th>\n"
-       ."<th class='open'><span class='mobi'>打开</span></th>\n"
-       ."<th class='rename'><span class='mobi'>重命名</span></th>\n"
-       ."<th class='open'><span class='mobi'>查看</span></th>\n"
-       .$qx
-       ."</tr></thead><tbody>";
-    if($_SESSION['folder']!="./" and $_SESSION['folder']!="/"){
-        $last = (substr($_SESSION['folder'],0,1)=='/')?explode('/', substr($_SESSION['folder'],1,-1)):explode('/', substr($_SESSION['folder'],2,-1));
-        $back = (substr($_SESSION['folder'],0,1)=='/')?'':substr($_SESSION['folder'],0,1);
-        array_pop($last);
-        foreach ($last as $value) {
-          $back = $back.'/'.$value;
-        }
-        if($os=='windows')$qx="";else $qx="<td></td>";
-        echo "<tr width=100%><td></td><td _order=\"1\" _ext=\"1\" _time=\"1\"><a href='{$meurl}?op=home&folder=".$back."/"."'>上级目录</a></td><td _size=\"1\"></td><td></td><td></td><td></td>$xx</tr>";
-    }
-    for ($a=1; $a<count($content1)+1;$a++) if(!empty($content1)) echo $content1[$a];
-    for ($b=1; $b<count($content2)+1;$b++) echo $content2[$b];
-      echo "</tbody></form>";
+if ($_GET['act'] == "phpinfo") 
+{
 
-    echo "</table>";
-    mainbottom();
-}
+	phpinfo();
 
-function gettime($filename){return "修改时间：".date("Y-m-d H:i:s",filemtime($filename))."\n"."创建时间：".date("Y-m-d H:i:s",filectime($filename));}
-function uCode($text){return mb_convert_encoding($text,'UTF-8','GBK');}
-function gCode($text){return mb_convert_encoding($text,'GBK','UTF-8');}
+	exit();
 
-function dirSize($directoty){
-  $dir_size=0;
-    if($dir_handle=opendir($directoty))
-    	{
-    		while($filename=readdir($dir_handle)){
-    			$subFile=$directoty.DIRECTORY_SEPARATOR.$filename;
-    			if($filename=='.'||$filename=='..'){
-    				continue;
-    			}elseif (is_dir($subFile))
-    			{
-    				$dir_size+=dirSize($subFile);
-    			}elseif (is_file($subFile)){
-    				$dir_size+=filesize($subFile);
-    			}
-    		}
-    		closedir($dir_handle);
-    	}
-    return ($dir_size);
-}
-// 计算文件大小的函数
-function Size($size) { 
-   $sz = ' kMGTP';
-   $factor = floor((strlen($size) - 1) / 3);
-   return ($size>=1024)?sprintf("%.2f", $size / pow(1024, $factor)) . @$sz[$factor]:$size;
 } 
-
-function curl_get_contents($url)   
-{   
-    $ch = curl_init();   
-    curl_setopt($ch, CURLOPT_URL, $url); 
-    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    curl_setopt($ch,CURLOPT_FOLLOWLOCATION,1);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    $r = curl_exec($ch);   
-    curl_close($ch);   
-    return $r;   
-}
-
-/****************************************************************/
-/* function up()                                                */
-/*                                                              */
-/* First step to Upload.                                        */
-/* User enters a file and the submits it to upload()            */
-/****************************************************************/
-
-function up() {
-    global $meurl, $folder;
-    maintop("上传");
-
-    echo "<FORM ENCTYPE='multipart/form-data' ACTION='{$meurl}?op=upload' METHOD='POST'>\n"
-        ."<div class='title'>本地上传 Max:".ini_get('upload_max_filesize').",".ini_get('max_file_uploads')."个</div><div class='box' style='border-bottom:0;'><input type='File' name='upfile[]' multiple size='30'>\n"
-        ."</div><input type='text' name='ndir' style='width:calc(100% - 12px);margin:0;' value='".$_SESSION["folder"]."' class='upload'>\n";
-
-    echo "<div class='right'><input type='checkbox' name='unzip' id='unzip' value='checkbox' onclick='UpCheck()' checked><label for='unzip'><abbr title='提取（解压）上传的Zip压缩文件'>解压</abbr></labal> "
-        ."<input type='checkbox' name='delzip' id='deluzip'value='checkbox'><label for='deluzip'><abbr title='同时将上传的压缩文件删除'>删除</abbr></labal> "
-        ."<input type='submit' value='上传' class='button'></div><br><br><br><br>\n"
-        ."<script>function UpCheck(){if(document.getElementById('unzip').checked){document.getElementById('deluzip').disabled=false}else{document.getElementById('deluzip').disabled=true}}</script>"
-        ."</form>\n";
-    echo "<div class='title'>远程下载</div><div class='box' style='border-bottom:0;'>什么是远程下载？<br>远程下载是从其他服务器获取文件并直接下载到当前服务器的一种功能。<br>类似于SSH的Wget功能，免去我们下载再手动上传所浪费的时间。<br><form action='{$meurl}?op=yupload' method='POST'>"
-         ."</div><input type='text' class='text' style='width:calc(100% - 12px);margin:0;' name='ndir' value='".$_SESSION["folder"]."'><textarea name='url' placeholder='请输入地址……'></textarea>"
-         ."<div class='right'><input type='checkbox' name='unzip' id='un' value='checkbox' onclick='Check()' checked><label for='un'><abbr title='提取（解压）上传的Zip压缩文件'>解压</abbr></labal> "
-         ."<input type='checkbox' name='delzip' id='del'value='checkbox'><label for='del'><abbr title='同时将上传的压缩文件删除'>删除</abbr></labal> <input name='submit' value='下载' type='submit' class='button'/></div>\n"
-         ."<script>function Check(){if(document.getElementById('un').checked){document.getElementById('del').disabled=false}else{document.getElementById('del').disabled=true}}</script>"
-         ."</form>";
-
-    mainbottom();
-}
-
-
-/****************************************************************/
-/* function yupload()                                           */
-/*                                                              */
-/* Second step in wget file.                                    */
-/* Saves the file to the disk.                                  */
-/* Recieves $upfile from up() as the uploaded file.             */
-/****************************************************************/
-
-function yupload($url, $folder, $unzip, $delzip) {
-	global $meurl;
-    if(empty($folder)){
-    	$folder="./";
-    }
-    $nfolder = $folder;
-    $nurl = $url;
-    $url = gCode($url);
-    $folder = gCode($folder);
-    if($url!==""){
-    	ignore_user_abort(true); // 要求离线也可下载
-        set_time_limit (24 * 60 * 60); // 设置超时时间
-  	    if (!file_exists($folder)){
-    	    mkdir($folder, 0755);
-        }
-    $newfname = $folder . basename($url); // 取得文件的名称
-    if(function_exists('curl_init')){
-    	  $file = curl_get_contents($url);file_put_contents($newfname,$file);
-    }else{
-        $file=fopen($url,"rb");
-        if($file){$newf = fopen ($newfname, "wb");
-        if($newf)while (!feof($file)) {fwrite($newf, fread($file, 1024 * 8), 1024 * 8);}}
-        if($file)fclose($file);
-        if($newf)fclose($newf);
-    }
-    maintop("远程上传");
-    echo "<div class='title'>文件 ".basename($url)." 上传成功<br></div><div class='box'>\n";
-    $end = explode('.', basename($url));
-    if((end($end)=="zip") && isset($unzip) && $unzip == "checkbox"){
-        if(class_exists('ZipArchive')){
-          echo "您可以 <a href='{$meurl}?op=home&folder=".$folder."'>访问文件夹</a> 或者 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a>  或者 <a href='{$meurl}?op=up'>继续上传</a>\n";
-          echo "</div><textarea rows=15 disabled>";
-            $zip = new ZipArchive();
-            if ($zip->open($folder.basename($url)) === TRUE) {
-                if($zip->extractTo($folder)){
-                for($i = 0; $i < $zip->numFiles; $i++) {
-                    echo "Unzip:".$zip->getNameIndex($i)."\n";
-                }
-                $zip->close();
-            }else{
-            	echo('<span class="error">Error:'.$nfolder.$ndename.'</span>');
-            }
-                echo basename($nurl)." 已经被解压到 $nfolder\n";
-                if(isset($delzip) && $delzip == "checkbox"){
-            	    if(unlink($folder.basename($url))){
-            	        echo basename($url)." 删除成功\n";
-                    }else{
-            	        echo basename($url)." 删除失败\n";
-                }
-                }
-            }else{
-                echo('<span class="error">无法解压文件：'.$nfolder.basename($nurl).'</span>');
-            }
-            echo '</textarea>';
-        }else{
-        	echo('<span class="error">此服务器上的PHP不支持ZipArchive，无法解压文件！</span></div>');
-        }
-    }else{
-    	echo "您可以 <a href='{$meurl}?op=home&folder={$nfolder}'>访问文件夹</a> 或者 <a href='{$meurl}?op=edit&fename=".basename($url)."&folder={$nfolder}'>编辑文件</a> 或者 <a href='{$meurl}?op=home&folder={$_SESSION['folder']}'>返回目录</a>  或者 <a href='{$meurl}?op=up'>继续上传</a>\n</div>";
-    }
-    mainbottom();
-    return true;
-    }else{
-	    printerror ('文件地址不能为空。');
-    }
-}
-
-
-/****************************************************************/
-/* function upload()                                            */
-/*                                                              */
-/* Second step in upload.                                       */
-/* 将文件保存到磁盘中                                           */
-/* Recieves $upfile from up() as the uploaded file.             */
-/****************************************************************/
-
-function upload($upfile,$ndir,$unzip,$delzip) {
-    global $meurl, $folder;
-    if(empty($ndir)){
-    	$ndir="./";
-    }
-    $nfolder = $folder;
-    $nndir = $ndir;
-    $ndir = gCode($ndir);
-    if (!$upfile) {
-        printerror("您没有选择文件！");
-        exit;
-    }elseif($upfile) { 
-  	    maintop("上传");
-  	if (!file_exists($ndir)){
-    	mkdir($ndir, 0755);
-    }
-    $i = 1;
-    echo "<div class='box'>您可以 <a href='{$meurl}?op=home&folder=".$ndir."'>前往文件所上传到的目录</a> 或者 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a> 或者 <a href='{$meurl}?op=up'>继续上传</a></div>\n";
-    echo '<textarea rows=15 disabled>';
-    while (count($upfile['name']) >= $i){
-    	$dir = gCode($nndir.$upfile['name'][$i-1]);
-        if(copy($upfile['tmp_name'][$i-1],$dir)) {
-            echo "文件 ".$nndir.$upfile['name'][$i-1]." 上传成功\n";
-            $end = explode('.', $upfile['name'][$i-1]);
-            if((end($end)=="zip") && isset($unzip) && $unzip == "checkbox"){
-            	if(class_exists('ZipArchive')){
-                    $zip = new ZipArchive();
-                    if ($zip->open($dir) === TRUE) {
-                if($zip->extractTo($ndir)){
-                for($j = 0; $j < $zip->numFiles; $j++) {
-                    echo $zip->getNameIndex($j)."\n";
-                }
-                $zip->close();
-            }
-                        echo $upfile['name'][$i-1]." 已经被解压到 $nndir\n";
-                        if(isset($delzip) && $delzip == "checkbox"){
-            	            if(unlink($dir.$upfile['name'][$i-1])){
-            	                echo $upfile['name'][$i-1]." 删除成功\n";
-                            }else{
-                                echo $upfile['name'][$i-1].(" 删除失败！\n");
-                            }
-                        }
-                    }else{
-                        echo("无法解压文件：".$nndir.$upfile['name'][$i-1]."\n");
-                    }
-                }else{
-            	    echo("此服务器上的PHP不支持ZipArchive，无法解压文件！\n");
-                }
-            }
-        }else{
-            echo("文件 ".$upfile['name'][$i-1]." 上传失败\n");
-        }
-        $i++;
-    }
-        echo '</textarea>';
-        mainbottom();
-    }else{
-        printerror("您没有选择文件！");
-    }
-}
-
-/****************************************************************/
-/* function unz()                                               */
-/*                                                              */
-/* First step in unz.                                        */
-/* Prompts the user for confirmation.                           */
-/* Recieves $dename and ask for deletion confirmation.          */
-/****************************************************************/
-
-function unz($dename) {
-    global $meurl, $folder, $content;
-    if (!$dename == "") {
-        if(class_exists('ZipArchive')){
-        	maintop("解压");
-        	echo "<table border='0' cellpadding='2' cellspacing='0'>\n"
-            ."<div class='title'>解压 ".$folder.$dename."</div>\n"
-            ."<form ENCTYPE='multipart/form-data' action='{$meurl}?op=unzip'>"
-            ."<input type='text' name='ndir' style='width:calc(100% - 12px);margin:0;' placeholder='解压到……' class='text' value='".$_SESSION['folder']."'>"
-            ."<textarea rows=15 disabled>";
-            $zip = new ZipArchive();
-            if ($zip->open($folder.$dename) === TRUE) {
-            	    echo 'Archive:  '.$folder.$dename.' with '.$zip->numFiles." files\n";
-            		echo "Date Time            Size Name\n";
-            		echo "------------         ---------------\n";
-                for($i = 0; $i < $zip->numFiles; $i++) {
-                	$info = $zip->statIndex($i);
-                	echo date('m-d-y h:m',$info['mtime']);
-                	echo '   '.$info['size'].'   ';
-                    echo uCode($zip->getNameIndex($i))."\n";
-                }
-            		echo "------------         ---------------\n";
-            		echo "Date Time            Size Name\n";
-            }else{
-            	     echo '文件读取失败。';
-            }
-            $zip->close();
-            echo "</textarea>";
-        echo "<input type='hidden' name='op' value='unzip'>\n"
-            ."<input type='hidden' name='dename' value='".$dename."'>\n"
-            ."<input type='hidden' name='folder' value='".$folder."'>\n"
-            ."<div class='right'><input type='checkbox' name='del' id='del'value='del'><label for='del'>删除</label> <input type='submit' value='解压' class='button'></div>\n"
-            ."</table>\n";
-        mainbottom();
-        }else{
-            	    printerror("此服务器上的PHP不支持ZipArchive，无法解压文件！\n");
-            }
-    }else{
-        home();
-    }
-}
-
-
-/****************************************************************/
-/* function unzip()                                            */
-/*                                                              */
-/* Second step in unzip.                                       */
-/****************************************************************/
-function unzip($dename,$ndir,$del) {
-    global $meurl, $folder;
-    $nndir = $ndir;
-    $nfolder = $folder;
-    $ndename = $dename;
-    $dename = gCode($dename);
-    $folder = gCode($folder);
-    $ndir = gCode($ndir);
-    if (!$dename == "") {
-        if (!file_exists($ndir)){
-    	    mkdir($ndir, 0755);
-        }
-        if(class_exists('ZipArchive')){
-            $zip = new ZipArchive();
-            if ($zip->open($folder.$dename) === TRUE) {
-            	maintop("解压");
-                if($zip->extractTo($ndir)){
-                echo '<div class="box">现在您可以 <a href="'.$meurl.'?op=home&folder='.$_SESSION["folder"].'">返回目录</a></div>';
-                echo '<textarea rows=15 disabled>';
-                for($i = 0; $i < $zip->numFiles; $i++) {
-                    echo uCode($zip->getNameIndex($i))."\n";
-                }
-                $zip->close();
-                echo $dename." 已经解压完成 $nndir\n";
-            }else{
-            	echo('无法解压文件：'.$nfolder.$ndename);
-            }
-                if($del=='del'){
-                	if(unlink($folder.$dename)){
-                		echo $ndename." 已经被删除\n";
-                	}else{
-                		echo $ndename." 删除失败！\n";
-                	}
-                }
-                echo "</textarea>\n";
-                mainbottom();
-            }else{
-                printerror('无法解压文件：'.$nfolder.$ndename);
-            }
-        }else{
-        	printerror('此服务器上的PHP不支持ZipArchive，无法解压文件！');
-        }
-    }else{
-        home();
-    }
-}
-
-
-/****************************************************************/
-/* function delete()                                            */
-/*                                                              */
-/* Second step in delete.                                       */
-/* Deletes the actual file from disk.                           */
-/* Recieves $upfile from up() as the uploaded file.             */
-/****************************************************************/
-
-function deltree($pathdir)  
-{  
-if(is_empty_dir($pathdir))//如果是空的  
-    {  
-    rmdir($pathdir);//直接删除  
-    }  
-    else  
-    {//否则读这个目录，除了.和..外  
-        $d=dir($pathdir);  
-        while($a=$d->read())  
-        {  
-        if(is_file($pathdir.'/'.$a) && ($a!='.') && ($a!='..')){unlink($pathdir.'/'.$a);}  
-        //如果是文件就直接删除  
-        if(is_dir($pathdir.'/'.$a) && ($a!='.') && ($a!='..'))  
-        {//如果是目录  
-            if(!is_empty_dir($pathdir.'/'.$a))//是否为空  
-            {//如果不是，调用自身，不过是原来的路径+他下级的目录名  
-            deltree($pathdir.'/'.$a);  
-            }  
-            if(is_empty_dir($pathdir.'/'.$a))  
-            {//如果是空就直接删除  
-            rmdir($pathdir.'/'.$a);
-            }
-        }  
-        }  
-        $d->close();  
-    }  
-}  
-
-function is_empty_dir($pathdir){
-    $d=opendir($pathdir);  
-    $i=0;  
-    while($a=readdir($d)){  
-        $i++;  
-    }  
-    closedir($d);  
-    if($i>2){return false;}  
-    else return true;  
-}
-
-
-/****************************************************************/
-/* function edit()                                              */
-/*                                                              */
-/* First step in edit.                                          */
-/* Reads the file from disk and displays it to be edited.       */
-/* Recieves $upfile from up() as the uploaded file.             */
-/****************************************************************/
-
-function edit($fename) {
-    global $meurl,$folder;
-    $file = gCode($folder.$fename);
-    if (file_exists($file)) {
-        maintop("编辑");
-        $contents = file_get_contents($file);
-        if(function_exists('mb_detect_encoding'))$encode = mb_detect_encoding($contents,array('ASCII','UTF-8','GBK','GB2312'));else $encode = 'UTF-8';
-        if(htmlspecialchars($_REQUEST['encode'])){$encode = htmlspecialchars($_REQUEST['encode']);}
-        if($encode!="UTF-8" && !empty($encode))$contents = mb_convert_encoding($contents,"UTF-8",$encode);
-        foreach(mb_list_encodings() as $key => $value){
-          if($key >= 19):
-            $arr=array('EUC-CN' => 'GB2312','CP936' => 'GBK','SJIS-mac'=>'MacJapanese','SJIS-Mobile#DOCOMO'=>'SJIS-DOCOMO','SJIS-Mobile#KDDI'=>'SJIS-KDDI','SJIS-Mobile#SOFTBANK'=>'SJIS-SOFTBANK','UTF-8-Mobile#DOCOMO'=>'UTF-8-DOCOMO','UTF-8-Mobile#KDDI-B'=>'UTF-8-KDDI','UTF-8-Mobile#SOFTBANK'=>'UTF-8-SOFTBANK','ISO-2022-JP-MOBILE#KDDI'=>'ISO-2022-JP-KDDI');
-            if(array_key_exists($value, $arr)) $value_text = $arr[$value]; else $value_text = $value;
-          if($encode == $value) $list.="<option value='$value' selected>".$value_text.'</option>'; else $list.="<option value='$value'>".$value_text.'</option>';
-          endif;
-        }
-        echo "<form action='{$meurl}?op=save' method='post'><div class='title'>编辑文件 {$folder}{$fename}\n"
-            ."<span class='right'><select onchange=\"javascript:window.location.href=('{$meurl}?op=edit&fename=$fename&folder=$folder&encode='+this.value);\" style=\"width:70px;height:20px;padding:0;margin:0;margin-top:-2px;font-size:12px;\">"
-            ."<option disabled>当前文件编码</option>".$list
-            .'</select> » '
-            ."<select name=\"encode\" style=\"width:70px;height:20px;padding:0;margin:0;margin-top:-2px;font-size:12px;\">"
-            ."<option disabled>保存文件编码</option>".$list
-            .'</select></span></div>'
-            ."<textarea rows='24' name='ncontent'>"
-            .htmlspecialchars($contents)
-            ."</textarea>"
-            ."<br>\n"
-            ."<input type='hidden' name='folder' value='{$folder}'>\n"
-            ."<input type='hidden' name='fename' value='{$fename}'>\n"
-            ."<input type='submit' value='保存' class='right button mob'>\n"
-            ."</form>\n";
-        mainbottom();
-    }else{
-        printerror("文件不存在！");
-    }
-}
-
-
-/****************************************************************/
-/* function save()                                              */
-/*                                                              */
-/* Second step in edit.                                         */
-/* Recieves $ncontent from edit() as the file content.          */
-/* Recieves $fename from edit() as the file name to modify.     */
-/****************************************************************/
-
-function save($ncontent, $fename, $encode) {
-    global $meurl,$folder;
-    if (!$fename == "") {
-    $file = gCode($folder.$fename);
-    $ydata = $ncontent;
-    if($encode!=="UTF-8" && $encode!=="ASCII")$ydata = mb_convert_encoding($ydata,$encode,"UTF-8");
-    if(file_put_contents($file, $ydata) or $ncontent=="") {
-        maintop("编辑");
-        echo "<div class='title'>文件 <a href='{$folder}{$fename}' target='_blank'>{$folder}{$fename}</a> 保存成功！<span class='right'>$encode</span></div>\n";
-        echo "<div class='box'>请选择 <a href='{$meurl}?op=home&folder={$_SESSION['folder']}'>返回目录</a> 或者 <a href='{$meurl}?op=edit&fename={$fename}&folder={$folder}'>继续编辑</a></div>\n";
-        $fp = null;
-        mainbottom();
-    }else{
-        printerror("文件保存出错！");
-    }
-    }else{
-    home();
-    }
-}
-
-/****************************************************************/
-/* function cr()                                                */
-/*                                                              */
-/* First step in create.                                        */
-/* Promts the user to a filename and file/directory switch.     */
-/****************************************************************/
-
-function cr() {
-    global $meurl, $folder;
-    maintop("创建");
-    echo "<form action='{$meurl}?op=create' method='post'>\n"
-        ."<div class='title'>创建文件 或 目录 <span class='right'><select name='isfolder' style='width:100px;height:20px;padding:0;margin:0;margin-top:-2px;font-size:12px;'><option value='0'>文件 File</option>\n"
-        ."<option value='1'>文件夹 Dir</option></select></span></div><div class='box' style='border-bottom:none'><label for='nfname'>文件名：</label><input type='text' size='20' id='nfname' placeholder='请输入文件名……' name='nfname' class='text long'>\n"
-        ."</div><input type='text' class='text' id='ndir' style='width:calc(100% - 12px);margin:0;' name='ndir' placeholder='目标目录……' value='".$_SESSION['folder']."'>";
-
-    echo "<input type='hidden' name='folder' value='$folder'>\n"
-        ."<input type='submit' value='创建' class='right button mob'>\n"
-        ."</form>\n";
-    mainbottom();
-}
-
-
-/****************************************************************/
-/* function create()                                            */
-/*                                                              */
-/* Second step in create.                                       */
-/* Creates the file/directoy on disk.                           */
-/* Recieves $nfname from cr() as the filename.                  */
-/* Recieves $infolder from cr() to determine file trpe.         */
-/****************************************************************/
-
-function create($nfname, $isfolder, $ndir) {
-    global $meurl, $folder;
-    if (!$nfname == "") {
-        $ndir = gCode($ndir);
-        $nfname = gCode($nfname);
-    if ($isfolder == 1) {
-        if(mkdir($ndir."/".$nfname, 0755)) {
-        	$ndir = uCode($ndir);
-        	$nfname = uCode($nfname);
-          maintop("创建");
-            echo "<div class='title'>您的目录<a href='{$meurl}?op=home&folder=./".$nfname."/'>".$ndir.$nfname."/</a> 已经成功被创建。</div><div class='box'>\n"
-            ."请选择 <a href='{$meurl}?op=home&folder=".$ndir.$nfname."/'>打开文件夹</a> 或者 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a>\n";
-          echo "</div>";
-          mainbottom();
-        }else{
-        	$ndir = uCode($ndir);
-        	$nfname = uCode($nfname);
-            printerror("您的目录 ".$ndir.$nfname." 不能被创建。请检查您的目录权限是否已经被设置为可写 或者 目录是否已经存在</span>\n");
-        }
-    }else{
-        if(fopen($ndir."/".$nfname, "w")) {
-        	$ndir = uCode($ndir);
-        	$nfname = uCode($nfname);
-          maintop("创建");
-            echo "<div class='title'>您的文件, <a href='{$meurl}?op=viewframe&file=".$nfname."&folder=$ndir'>".$ndir.$nfname."</a> 已经成功被创建</div><div class='box'>\n"
-                ."<a href='{$meurl}?op=edit&fename=".$nfname."&folder=".$ndir."'>编辑文件</a> 或者是 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a>\n";
-          echo "</div>";
-          mainbottom();
-        }else{
-        	$ndir = uCode($ndir);
-        	$nfname = uCode($nfname);
-            printerror("您的文件 ".$ndir.$nfname." 不能被创建。请检查您的目录权限是否已经被设置为可写 或者 文件是否已经存在</span>\n");
-        }
-    }
-    }else{
-    cr();
-    }
-}
-
-
-/****************************************************************/
-/* function ren()                                               */
-/*                                                              */
-/* First step in rename.                                        */
-/* Promts the user for new filename.                            */
-/* Globals $file and $folder for filename.                      */
-/****************************************************************/
-
-function ren($file) {
-    global $meurl,$folder,$ufolder;
-    $ufile = $file;
-    if (!$file == "") {
-        maintop("重命名");
-        echo "<form action='{$meurl}?op=rename' method='post'>\n"
-            ."<div class='title'>重命名 ".$ufolder.$ufile.'</div>';
-        echo "<input type='hidden' name='rename' value='".$ufile."'>\n"
-            ."<input type='hidden' name='folder' value='".$ufolder."'>\n"
-            ."<input class='text' type='text' style='width:calc(100% - 12px);margin:0;' placeholder='请输入文件名……' name='nrename' value='$ufile'>\n"
-            ."<input type='Submit' value='重命名' class='right button mob'></form>\n";
-        mainbottom();
-    }else{
-        home();
-    }
-}
-
-
-/****************************************************************/
-/* function renam()                                             */
-/*                                                              */
-/* Second step in rename.                                       */
-/* Rename the specified file.                                   */
-/* Recieves $rename from ren() as the old  filename.            */
-/* Recieves $nrename from ren() as the new filename.            */
-/****************************************************************/
-
-function renam($rename, $nrename, $folder) {
-    global $meurl,$folder;
-    if (!$rename == "") {
-        $loc1 = gCode("$folder".$rename); 
-        $loc2 = gCode("$folder".$nrename);
-        if(rename($loc1,$loc2)) {
-        	maintop("重命名");
-            echo "<div class='title'>文件 ".$folder.$rename." 已被重命名成 ".$folder.$nrename."</a></div>\n"
-            ."<div class='box'>请选择 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a> 或者 <a href='?op=edit&fename={$nrename}&folder={$folder}'>编辑新文件</a></div>\n";
-            mainbottom();
-        }else{
-            printerror("重命名出错！");
-        }
-    }else{
-    home();
-    }
-}
-
-/****************************************************************/
-/* function movall                                              */
-/*                                                              */
-/* 批量移动 2014-4-12 by jooies                                 */
-/****************************************************************/
-
-function movall($file, $ndir, $folder) {
-    global $meurl,$folder;
-    if (!$file == "") {
-        maintop("批量移动");
-        $arr = str_split($ndir);
-        if($arr[count($arr)-1]!=='/'){
-            $ndir .= '/';
-        }
-        $nndir = $ndir;
-        $nfolder = $folder;
-    	$file = gCode($file);
-    	$ndir = gCode($ndir);
-    	$folder = gCode($folder);
-        if (!file_exists($ndir)){
-    	    mkdir($ndir, 0755);
-        }
-        $file = explode(',',$file);
-      echo "<div class='title'>您可以 <a href='{$meurl}?op=home&folder={$nndir}'>前往文件夹查看文件</a> 或者 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a></div><textarea rows=20 disabled>";
-        foreach ($file as $v) {
-        if (file_exists($ndir.$v)){
-        	if (rename($folder.$v, $ndir.$v."(1)")){
-        		$v = uCode($v);
-    	       echo $nndir.$v." 文件已存在，自动更名为 {$nndir}(1)\n";
-            }else{
-            	$v = uCode($v);
-              echo "无法移动 ".$nfolder.$v."，请检查文件权限\n";
-            }
-        }elseif (rename($folder.$v, $ndir.$v)){
-        	$v = uCode($v);
-            echo $nfolder.$v." 已经成功移动到 ".$nndir.$v."\n";
-        }else{
-        	$v = uCode($v);
-            echo "无法移动 ".$nfolder.$v."，请检查文件权限或文件是否存在\n";
-        }
-        }
-    echo "</textarea>";
-    mainbottom();
-    }else{
-    home();
-    }
-}
-
-/****************************************************************/
-/* function tocopy                                              */
-/*                                                              */
-/* 批量复制 2014-4-19 by jooies                                 */
-/****************************************************************/
-
-function tocopy($file, $ndir, $folder) {
-    global $meurl,$folder;
-    if (!$file == "") {
-        maintop("复制");
-        $nndir = $ndir;
-        $nfolder = $folder;
-    	  $file = gCode($file);
-    	  $ndir = gCode($ndir);
-    	  $folder = gCode($folder);
-        if (!file_exists($ndir)){
-    	    mkdir($ndir, 0755);
-        }
-        $file = explode(',',$file);
-        echo "<div class='box'>您可以 <a href='{$meurl}?op=home&folder=".$nndir."'>前往文件夹查看文件</a> 或者 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a></div><textarea rows=20 disabled>";
-        foreach ($file as $v) {
-        if (file_exists($ndir.$v)){
-        	if (copy($folder.$v, $ndir.$v.'(1)')){
-        		  $v = iconv("GBK", "UTF-8",$v);
-    	        echo "{$nndir}{$v} 文件已存在，自动更名为 {$nfolder}{$v}(1)\n";
-            }else{
-            	$v = iconv("GBK", "UTF-8",$v);
-              echo "无法复制 {$nfolder}{$v}，请检查文件权限\n";
-            }
-        }elseif (copy($folder.$v, $ndir.$v)){
-        	$v = iconv("GBK", "UTF-8",$v);
-            echo $nfolder.$v." 已经成功复制到 ".$nndir.$v."\n";
-        }else{
-        	$v = iconv("GBK", "UTF-8",$v);
-            echo "无法复制 ".$nfolder.$v."，请检查文件权限\n";
-        }
-        }
-    echo "</textarea>";
-    mainbottom();
-    }else{
-    home();
-    }
-}
-
-
-/****************************************************************/
-/* function logout()                                            */
-/*                                                              */
-/* Logs the user out and kills cookies                          */
-/****************************************************************/
-
-function logout() {
-    global $meurl;
-    setcookie("user","",time()-60*60*24*1);
-    setcookie("pass","",time()-60*60*24*1);
-
-    maintop("注销",false);
-    echo "<div class='box'>注销成功！<br>"
-        ."<a href={$meurl}?op=home>点击这里重新登录</a></dvi>";
-    mainbottom();
-}
-
-
-/****************************************************************/
-/* function mainbottom()                                        */
-/*                                                              */
-/* 页面底部的版权声明                                           */
-/****************************************************************/
-
-function mainbottom() {
-    echo "</div><div style='text-align:center;font-size:13px;color:#999 !important;margin:10px 0 45px 0;font-family:Candara;'>"
-        ."FileBox Version 1.10.0.1</div></body>\n"
-        ."</html>\n";
-    exit;
-}
-
-
-/****************************************************************/
-/* function sqlb()                                              */
-/*                                                              */
-/* First step to backup sql.                                    */
-/****************************************************************/
-
-function sqlb() {
-	global $meurl;
-    maintop("数据库备份");
-    echo "<div class='title'><span>这将进行数据库导出并压缩成mysql.zip的动作! 如存在该文件,该文件将被覆盖！</span></div><div class='box'><form action='{$meurl}?op=sqlbackup' method='POST'>\n<label for='ip'>数据库地址:  </label><input type='text' id='ip' name='ip' size='30' value='localhost' class='text'/><br><label for='sql'>数据库名称:  </label><input type='text' id='sql' name='sql' size='30' class='text'/><br><label for='username'>数据库用户:  </label><input type='text' id='username' name='username' size='30' value='root' class='text'/><br><label for='password'>数据库密码:  </label><input type='password' id='password' name='password' size='30' class='text'/><br></div><input name='submit' class='right button mob' value='备份' type='submit' /></form>\n";
-    mainbottom();
-}
-
-
-/****************************************************************/
-/* function sqlbackup()                                         */
-/*                                                              */
-/* Second step in backup sql.                                   */
-/****************************************************************/
-
-function sqlbackup($ip="localhost",$sql,$username="root",$password) {
-	global $meurl;
-    if(class_exists('ZipArchive')){
-    $database=$sql;//数据库名
-    $options=array(
-        'hostname' => $ip,//ip地址
-        'charset' => 'utf8',//编码
-        'filename' => $database.'.sql',//文件名
-        'username' => $username,
-        'password' => $password
-    );
-    $mysql = mysqli_connect($options['hostname'],$options['username'],$options['password'],$database)or die(printerror("不能连接数据库：".mysqli_connect_error()));
-    maintop("MySQL备份");
-    mysqli_query($mysql,"SET NAMES '{$options['charset']}'");
-    $tables = list_tables($database,$mysql);
-    $filename = sprintf($options['filename'],$database);
-    $fp = fopen($filename, 'w');
-    foreach ($tables as $table) {
-        dump_table($table, $fp,$mysql);
-    }
-    fclose($fp);
-    mysqli_close($mysql);
-    //压缩sql文件
-        if (file_exists('mysql.zip')) {
-            unlink('mysql.zip'); 
-        }
-        $file_name=$options['filename'];
-        $zip = new ZipArchive;
-        $res = $zip->open('mysql.zip', ZipArchive::CREATE);
-        if ($res === TRUE) {
-            $zip->addfile($file_name);
-            $zip->close();
-        //删除服务器上的sql文件
-            unlink($file_name);
-        echo '<div class="box">数据库导出并压缩完成！'
-            ." <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a></div>\n";
-        }else{
-            printerror('无法压缩文件！');
-        }
-    exit;
-    mainbottom();
-    }else{
-    	printerror('此服务器上的PHP不支持ZipArchive，无法压缩文件！');
-    }
-}
-
-function list_tables($database,$mysql)
+elseif($_POST['act'] == "整型测试")
 {
-    $rs = mysqli_query($mysql,"SHOW TABLES FROM $database");
-    $tables = array();
-    while ($row = mysqli_fetch_row($rs)) {
-        $tables[] = $row[0];
-    }
-    mysqli_free_result($rs);
-    return $tables;
-}
 
-//导出数据库
-function dump_table($table, $fp = null,$mysql)
+	$valInt = test_int();
+
+} 
+elseif($_POST['act'] == "浮点测试")
 {
-    $need_close = false;
-    if (is_null($fp)) {
-        $fp = fopen($table . '.sql', 'w');
-        $need_close = true;
-    }
-$a=mysqli_query($mysql,"show create table `{$table}`");
-$row=mysqli_fetch_assoc($a);fwrite($fp,$row['Create Table'].';');//导出表结构
-    $rs = mysqli_query($mysql,"SELECT * FROM `{$table}`");
-    while ($row = mysqli_fetch_row($rs)) {
-        fwrite($fp, get_insert_sql($table, $row));
-    }
-    mysqli_free_result($rs);
-    if ($need_close) {
-        fclose($fp);
-    }
-}
 
-//导出表数据
-function get_insert_sql($table, $row)
+	$valFloat = test_float();
+
+} 
+elseif($_POST['act'] == "IO测试")
 {
-    $sql = "INSERT INTO `{$table}` VALUES (";
-    $values = array();
-    foreach ($row as $value) {
-        $values[] = "'" . mysql_real_escape_string($value) . "'";
-    }
-    $sql .= implode(', ', $values) . ");";
-    return $sql;
+
+	$valIo = test_io();
+
+} 
+//网速测试-开始
+elseif($_POST['act']=="开始测试")
+{
+?>
+	<script language="javascript" type="text/javascript">
+		var acd1;
+		acd1 = new Date();
+		acd1ok=acd1.getTime();
+	</script>
+	<?php
+	for($i=1;$i<=204800;$i++)
+	{
+		echo "<!--34567890#########0#########0#########0#########0#########0#########0#########0#########012345-->";
+	}
+	?>
+	<script language="javascript" type="text/javascript">
+		var acd2;
+		acd2 = new Date();
+		acd2ok=acd2.getTime();
+		window.location = '?speed=' +(acd2ok-acd1ok)+'#w_networkspeed';
+	</script>
+<?php
 }
-
-/****************************************************************/
-/* function ftpa()                                              */
-/*                                                              */
-/* First step to backup sql.                                    */
-/****************************************************************/
-
-function ftpa() {
-	global $meurl;
-    maintop("FTP备份");
-    echo "<div class='title'>这将把文件远程上传到其他ftp！如目录存在该文件,文件将被覆盖！</div>\n<form action='{$meurl}?op=ftpall' method='POST'><div class='box'><label for='ftpip'>FTP 地址：</label><input type='text' id='ftpip' name='ftpip' size='30' class='text' value='127.0.0.1:21'/><br><label for='ftpuser'>FTP 用户：</label><input type='text' id='ftpuser' name='ftpuser' size='30' class='text'/><br><label for='ftppass'>FTP 密码：</label><input type='password' id='ftppass' name='ftppass' size='30' class='text'/><br><label type='text' for='goto'>上传目录：</label><input type='text' id='goto' name='goto' size='30' class='text' value='./htdocs/'/><br><label for='ftpfile'>上传文件：</label><input type='text' id='ftpfile' name='ftpfile' size='30' class='text' value='allbackup.zip'/></div><div class='right'><label for='del'><input type='checkbox' name='del' id='del'value='checkbox'><abbr title='FTP上传后删除本地文件'>删除</abbr></label> <input name='submit' class='button' value='远程上传' type='submit' /></div></form>\n";
-    mainbottom();
-}
-
-/****************************************************************/
-/* function ftpall()                                         */
-/*                                                              */
-/* Second step in backup sql.                                   */
-/****************************************************************/
-
-function ftpall($ftpip,$ftpuser,$ftppass,$ftpdir,$ftpfile,$del) {
-	global $meurl;
-	$ftpfile = gCode($ftpfile);
-    $ftpip=explode(':', $ftpip);
-    $ftp_server=$ftpip['0'];//服务器
-    $ftp_user_name=$ftpuser;//用户名
-    $ftp_user_pass=$ftppass;//密码
-    if(empty($ftpip['1'])){
-    	$ftp_port='21';
-    }else{
-    	$ftp_port=$ftpip['1'];//端口
-    }
-    $ftp_put_dir=$ftpdir;//上传目录
-    $ffile=$ftpfile;//上传文件
-
-    $ftp_conn_id = ftp_connect($ftp_server,$ftp_port);
-    $ftp_login_result = ftp_login($ftp_conn_id, $ftp_user_name, $ftp_user_pass);
-
-    if((!$ftp_conn_id) || (!$ftp_login_result)) {
-        printerror('连接到ftp服务器失败');
-        exit;
-    }else{
-        ftp_pasv ($ftp_conn_id,true); //返回一下模式，这句很奇怪，有些ftp服务器一定需要执行这句
-        ftp_chdir($ftp_conn_id, $ftp_put_dir);
-        $ffile=explode(',', $ffile);
-        foreach ($ffile as $v) {
-        	$ftp_upload = ftp_put($ftp_conn_id,$v,$v, FTP_BINARY);
-        	if ($del == 'del') {
-        		unlink('./'.$v);
-        	}
-        }
-        ftp_close($ftp_conn_id); //断开
-    }
-    maintop("FTP上传");
-    echo "<div class='title'>";
-    $ftpfile = uCode($ftpfile);
-    echo "文件 ".$ftpfile." 上传成功</div><div class='box'>\n"
-        ." <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a>\n";
-    echo "</div>";
-    mainbottom();
+//网速测试-结束
+elseif($_GET['act'] == "Function")
+{
+	$arr = get_defined_functions();
+	Function php()
+	{
+	}
+	echo "<pre>";
+	Echo "这里显示系统所支持的所有函数,和自定义函数\n";
+	print_r($arr);
+	echo "</pre>";
+	exit();
+}elseif($_GET['act'] == "disable_functions")
+{
+	$disFuns=get_cfg_var("disable_functions");
+	if(empty($disFuns))
+	{
+		$arr = '<font color=red><i class="fa fa-times"></i></font>';
+	}
+	else
+	{ 
+		$arr = $disFuns;
+	}
+	Function php()
+	{
+	}
+	echo "<pre>";
+	Echo "这里显示系统被禁用的函数\n";
+	print_r($arr);
+	echo "</pre>";
+	exit();
 }
 
 
-/****************************************************************/
-/* function printerror()                                        */
-/*                                                              */
-/* 用于显示错误信息的函数                                       */
-/* $error为显示的提示                                           */
-/****************************************************************/
 
-function printerror($error) {
-    maintop("错误");
-    echo "<div class='title'>错误信息如下：</div><div class='box'><span class='error' style='font-size:12px;'>\n".$error."\n</span> <a onclick='history.go(-1);' style='cursor:pointer;font-size:12px;'>返回上一步</a></div>";
-    mainbottom();
+//MySQL检测
+
+if ($_POST['act'] == 'MySQL检测')
+{
+
+	$host = isset($_POST['host']) ? trim($_POST['host']) : '';
+
+	$port = isset($_POST['port']) ? (int) $_POST['port'] : '';
+
+	$login = isset($_POST['login']) ? trim($_POST['login']) : '';
+
+	$password = isset($_POST['password']) ? trim($_POST['password']) : '';
+
+	$host = preg_match('~[^a-z0-9\-\.]+~i', $host) ? '' : $host;
+
+	$port = intval($port) ? intval($port) : '';
+
+	$login = preg_match('~[^a-z0-9\_\-]+~i', $login) ? '' : htmlspecialchars($login);
+
+	$password = is_string($password) ? htmlspecialchars($password) : '';
+
+}
+elseif ($_POST['act'] == '函数检测')
+{
+
+	$funRe = "函数".$_POST['funName']."支持状况检测结果：".isfun1($_POST['funName']);
+
+} 
+elseif ($_POST['act'] == '邮件检测')
+{
+
+	$mailRe = "邮件发送检测结果：发送";
+	if($_SERVER['SERVER_PORT']==80){$mailContent = "http://".$_SERVER['SERVER_NAME'].($_SERVER['PHP_SELF'] ? $_SERVER['PHP_SELF'] : $_SERVER['SCRIPT_NAME']);}
+	else{$mailContent = "http://".$_SERVER['SERVER_NAME'].":".$_SERVER['SERVER_PORT'].($_SERVER['PHP_SELF'] ? $_SERVER['PHP_SELF'] : $_SERVER['SCRIPT_NAME']);}
+	$mailRe .= (false !== @mail($_POST["mailAdd"], $mailContent, "This is a test mail!")) ? "完成":"失败";
+
 }
 
-/****************************************************************/
-/* function deleteall()                                         */
-/*                                                              */
-/* 2014-3-9 Add by Jooies                                       */
-/* 实现文件的批量删除功能                                       */
-/****************************************************************/
 
-function deleteall($dename) {
-    if (!$dename == "") {
-    	$udename = $dename;
-    	$dename = gCode($dename);
-        if (is_dir($dename)) {
-            if(is_empty_dir($dename)){ 
-                rmdir($dename);
-                echo $udename." 已经被删除\n";
-            }else{
-                deltree($dename);
-                rmdir($dename);
-                echo $udename." 已经被删除\n";
-            }
-        }else{
-            if(unlink($dename)) {
-                echo $udename." 已经被删除\n";
-            }else{
-                echo("无法删除文件：$udename 。\n参考信息\n1.文件不存在\n2.文件正在执行\n");
-            }
-        }
-    }
+//网络速度测试
+if(isset($_POST['speed']))
+{
+	$speed=round(100/($_POST['speed']/2048),2);
+}
+elseif($_GET['speed']=="0")
+{
+	$speed=6666.67;
+}
+elseif(isset($_GET['speed']) and $_GET['speed']>0)
+{
+	$speed=round(100/($_GET['speed']/2048),2); //下载速度：$speed kb/s
+}
+else
+{
+	$speed="<font color=\"red\">&nbsp;未探测&nbsp;</font>";
+}	
+	
+	
+
+// 检测函数支持
+
+function isfun($funName = '')
+{
+
+    if (!$funName || trim($funName) == '' || preg_match('~[^a-z0-9\_]+~i', $funName, $tmp)) return '错误';
+
+	return (false !== function_exists($funName)) ? '<font color="green"><i class="fa fa-check"></i></font>' : '<font color="red"><i class="fa fa-times"></i></font>';
+}
+function isfun1($funName = '')
+{
+    if (!$funName || trim($funName) == '' || preg_match('~[^a-z0-9\_]+~i', $funName, $tmp)) return '错误';
+	return (false !== function_exists($funName)) ? '<i class="fa fa-check"></i>' : '<i class="fa fa-times"></i>';
 }
 
-switch($action) {//$action 为批量操作
-    case "删除":
-    if(isset($_POST['select_item'])){
-      maintop("删除");
-      echo "<div class='box'>您可以 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a></div>\n";
-      echo '<textarea rows=15 disabled>';
-        if($_POST['select_item']['d']){
-            foreach($_POST['select_item']['d'] as $val){
-                deleteall($val);
-            }
-        }
-        if($_POST['select_item']['f']){
-            foreach($_POST['select_item']['f'] as $val){
-                if(deleteall($val)){}
-            }
-        }
-        echo '</textarea>';
-        mainbottom();
-    }else{
-        printerror("您没有选择文件");
-    }
-    break;
 
-    case "移动":
-    if(isset($_POST['select_item'])){
-        maintop("批量移动");
-        $file = '';
-        if($_POST['select_item']['d']){
-            foreach($_POST['select_item']['d'] as $key => $val){
-                $file = $file.$key.',';
-            }
-        }
-        if($_POST['select_item']['f']){
-            foreach($_POST['select_item']['f'] as $key => $val){
-                $file = $file.$key.',';
-            }
-        }
-        $file = substr($file,0,-1);
-        echo "<form action='{$meurl}?op=movall' method='post'>";
-        echo '<div class="title">移动文件</div><div class="box"><input type="hidden" name="file" value="'.$file.'"><input type="hidden" name="folder" value="'.$_SESSION['folder'].'">您将把下列文件移动到：'
-            ."<input type='text' class='text' name='ndir' value='".$_SESSION['folder']."'>\n"
-            ."</div><textarea rows=15 disabled>".$file."</textarea>";
-        echo "<input type='submit' value='移动' border='0' class='right button mob'>\n";
-        mainbottom();
-    }else{
-        printerror("您没有选择文件");
-    }
-    break;
 
-    case "复制":
-    if(isset($_POST['select_item'])){
-        maintop("复制");
-        $file = '';
-        if($_POST['select_item']['d']){
-            foreach($_POST['select_item']['d'] as $key => $val){
-                $file = $file.$key.',';
-            }
-        }
-        if($_POST['select_item']['f']){
-            foreach($_POST['select_item']['f'] as $key => $val){
-                $file = $file.$key.',';
-            }
-        }
-        $file = substr($file,0,-1);
-        echo "<form action='{$meurl}?op=copy' method='post'>";
-        echo '<div class="title">复制文件</div><div class="box"><input type="hidden" name="file" value="'.$file.'"><input type="hidden" name="folder" value="'.$_SESSION['folder'].'">您将把下列文件复制到：'
-            ."<input type='text' class='text' name='ndir' value='".$_SESSION['folder']."'>\n"
-            ."</div><textarea rows=15 disabled>".$file."</textarea>";
-        echo "<input type='submit' value='复制' border='0' class='right button mob'>\n";
-        mainbottom();
-    }else{
-        printerror("您没有选择文件");
-    }
-    break;
+//整数运算能力测试
 
-    case "压缩":
-    if(isset($_POST['select_item'])){
-    if(class_exists('ZipArchive')){
-        maintop("目录压缩");
-        $time = $_SERVER['REQUEST_TIME'];
-        echo "<div class='box'>您可以 <a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>查看文件夹</a> 或者 <a href='./Backup-{$time}.zip'>下载文件</a> 或者 <a href='{$meurl}?op=home'>返回目录</a></div>";
-        echo '<textarea rows=15 disabled>';
-        class Zipper extends ZipArchive {
-            public function addDir($path) {
-                if($_POST['select_item']['d']){
-                    foreach($_POST['select_item']['d'] as $key => $val){
-                        $val = substr($val,2);
-                        $val = gCode($val);
-                        $this->addDir2($val);
-                    }
-                }
-                if($_POST['select_item']['f']){
-                    foreach($_POST['select_item']['f'] as $key => $val){
-                        $val = substr($val,2);
-                        echo $val."\n";
-                        $this->addFile($val);
-                    }
-                    $this->deleteName('./');
-                }
-            }
-            public function addDir2($path) {
-                $nval = iconv("GBK", "UTF-8",$path);
-                echo $nval."\n";
-                $this->addEmptyDir($path);
-                $dr = opendir($path);
-                $i=0;
-                while (($file = readdir($dr)) !== false)
-                {
-                    if($file!=='.' && $file!=='..'){
-                        $nodes[$i] = $path.'/'.$file;
-                        $i++;
-                    }
-                }
-                closedir($dr);
-                foreach ($nodes as $node) {
-                    $nnode = iconv("GBK", "UTF-8",$node);
-                    echo $nnode . "\n";
-                    if (is_dir($node)) {
-                        $this->addDir2($node);
-                    }elseif(is_file($node)){
-                        $this->addFile($node);
-                    }
-                }
-            }
-        }
-        $zip = new Zipper;
-        $res = $zip->open($_SESSION['folder'].'Backup-'.$time.'.zip', ZipArchive::CREATE);
-        if ($res === TRUE) {
-            $f = substr($_SESSION['folder'], 0, -1);
-            $zip->addDir($f);
-            $zip->close();
-            echo "压缩完成，文件保存为Backup-".$time.".zip</textarea>\n";
-        }else{
-            echo '<span class="error">压缩失败！</span>'
-                ."</textarea>\n";
-        }
-        mainbottom();
-    }else{
-        printerror('此服务器上的PHP不支持ZipArchive，无法压缩文件！');
-    }
-    }else{
-        printerror("您没有选择文件");
-    }
-    break;
+function test_int()
+{
 
-    case "权限":
-    if($os != 'windows'){
-    if(isset($_POST['select_item'])){
-        maintop("修改权限");
-        echo "<div class='title'><a href='{$meurl}?op=home&folder=".$_SESSION['folder']."'>返回目录</a></div>\n";
-        echo '<textarea rows=20 disabled>';
-        $chmod = octdec(htmlentities($_REQUEST['chmod']));
-        function ChmodMine($file, $chmod)
+	$timeStart = gettimeofday();
+
+	for($i = 0; $i < 3000000; $i++)
+	{
+
+		$t = 1+1;
+
+	}
+
+	$timeEnd = gettimeofday();
+
+	$time = ($timeEnd["usec"]-$timeStart["usec"])/1000000+$timeEnd["sec"]-$timeStart["sec"];
+
+	$time = round($time, 3)."秒";
+
+	return $time;
+
+}
+
+
+
+//浮点运算能力测试
+
+function test_float()
+{
+
+	//得到圆周率值
+
+	$t = pi();
+
+	$timeStart = gettimeofday();
+
+
+
+	for($i = 0; $i < 3000000; $i++)
+	{
+
+		//开平方
+
+		sqrt($t);
+
+	}
+
+
+
+	$timeEnd = gettimeofday();
+
+	$time = ($timeEnd["usec"]-$timeStart["usec"])/1000000+$timeEnd["sec"]-$timeStart["sec"];
+
+	$time = round($time, 3)."秒";
+
+	return $time;
+
+}
+
+
+
+//IO能力测试
+
+function test_io()
+{
+
+	$fp = @fopen(PHPSELF, "r");
+
+	$timeStart = gettimeofday();
+
+	for($i = 0; $i < 10000; $i++) 
+	{
+
+		@fread($fp, 10240);
+
+		@rewind($fp);
+
+	}
+
+	$timeEnd = gettimeofday();
+
+	@fclose($fp);
+
+	$time = ($timeEnd["usec"]-$timeStart["usec"])/1000000+$timeEnd["sec"]-$timeStart["sec"];
+
+	$time = round($time, 3)."秒";
+
+	return($time);
+
+}
+
+function GetCoreInformation() {$data = file('/proc/stat');$cores = array();foreach( $data as $line ) {if( preg_match('/^cpu[0-9]/', $line) ){$info = explode(' ', $line);$cores[]=array('user'=>$info[1],'nice'=>$info[2],'sys' => $info[3],'idle'=>$info[4],'iowait'=>$info[5],'irq' => $info[6],'softirq' => $info[7]);}}return $cores;}
+function GetCpuPercentages($stat1, $stat2) {if(count($stat1)!==count($stat2)){return;}$cpus=array();for( $i = 0, $l = count($stat1); $i < $l; $i++) {	$dif = array();	$dif['user'] = $stat2[$i]['user'] - $stat1[$i]['user'];$dif['nice'] = $stat2[$i]['nice'] - $stat1[$i]['nice'];	$dif['sys'] = $stat2[$i]['sys'] - $stat1[$i]['sys'];$dif['idle'] = $stat2[$i]['idle'] - $stat1[$i]['idle'];$dif['iowait'] = $stat2[$i]['iowait'] - $stat1[$i]['iowait'];$dif['irq'] = $stat2[$i]['irq'] - $stat1[$i]['irq'];$dif['softirq'] = $stat2[$i]['softirq'] - $stat1[$i]['softirq'];$total = array_sum($dif);$cpu = array();foreach($dif as $x=>$y) $cpu[$x] = round($y / $total * 100, 2);$cpus['cpu' . $i] = $cpu;}return $cpus;}
+$stat1 = GetCoreInformation();sleep(1);$stat2 = GetCoreInformation();$data = GetCpuPercentages($stat1, $stat2);
+$cpu_show = $data['cpu0']['user']."%us,  ".$data['cpu0']['sys']."%sy,  ".$data['cpu0']['nice']."%ni, ".$data['cpu0']['idle']."%id,  ".$data['cpu0']['iowait']."%wa,  ".$data['cpu0']['irq']."%irq,  ".$data['cpu0']['softirq']."%softirq";
+function makeImageUrl($title, $data) {$api='http://api.yahei.net/tz/cpu_show.php?id=';$url.=$data['user'].',';$url.=$data['nice'].',';$url.=$data['sys'].',';$url.=$data['idle'].',';$url.=$data['iowait'];$url.='&chdl=User|Nice|Sys|Idle|Iowait&chdlp=b&chl=';$url.=$data['user'].'%25|';$url.=$data['nice'].'%25|';$url.=$data['sys'].'%25|';$url.=$data['idle'].'%25|';$url.=$data['iowait'].'%25';$url.='&chtt=Core+'.$title;return $api.base64_encode($url);}
+if($_GET['act'] == "cpu_percentage"){echo "<center><b><font face='Microsoft YaHei' color='#666666' size='3'>图片加载慢，请耐心等待！</font></b><br /><br />";foreach( $data as $k => $v ) {echo '<img src="' . makeImageUrl( $k, $v ) . '" style="width:360px;height:240px;border: #CCCCCC 1px solid;background: #FFFFFF;margin:5px;padding:5px;" />';}echo "</center>";exit();}
+
+
+
+// 根据不同系统取得CPU相关信息
+
+switch(PHP_OS)
+{
+
+	case "Linux":
+
+		$sysReShow = (false !== ($sysInfo = sys_linux()))?"show":"none";
+
+	break;
+	
+
+	case "FreeBSD":
+
+		$sysReShow = (false !== ($sysInfo = sys_freebsd()))?"show":"none";
+
+	break;
+/*	
+
+	case "WINNT":
+
+		$sysReShow = (false !== ($sysInfo = sys_windows()))?"show":"none";
+
+	break;
+*/	
+
+	default:
+
+	break;
+
+}
+
+
+
+//linux系统探测
+
+function sys_linux()
+
+{
+
+    // CPU
+
+    if (false === ($str = @file("/proc/cpuinfo"))) return false;
+
+    $str = implode("", $str);
+
+    @preg_match_all("/model\s+name\s{0,}\:+\s{0,}([\w\s\)\(\@.-]+)([\r\n]+)/s", $str, $model);
+
+    @preg_match_all("/cpu\s+MHz\s{0,}\:+\s{0,}([\d\.]+)[\r\n]+/", $str, $mhz);
+
+    @preg_match_all("/cache\s+size\s{0,}\:+\s{0,}([\d\.]+\s{0,}[A-Z]+[\r\n]+)/", $str, $cache);
+
+    @preg_match_all("/bogomips\s{0,}\:+\s{0,}([\d\.]+)[\r\n]+/", $str, $bogomips);
+
+    if (false !== is_array($model[1]))
+
+	{
+
+        $res['cpu']['num'] = sizeof($model[1]);
+		/*
+
+        for($i = 0; $i < $res['cpu']['num']; $i++)
+
         {
-            $nfile = $file;
-            $file = gCode($file);
-            if(is_file($file)){
-                if(chmod($file, $chmod)){
-                    echo '文件'.$nfile." 权限修改成功\n";
-                }else{
-                    echo '文件'.$nfile." 权限修改失败\n";
-                }
-            }elseif(is_dir($file)){
-                if(chmod($file, $chmod)){
-                    echo '文件夹'.$nfile." 权限修改成功\n";
-                }else{
-                    echo '<span class="error">文件夹'.$nfile." 权限修改失败\n";
-                }
-                $foldersAndFiles = scandir($file);
-                $entries = array_slice($foldersAndFiles, 2);
-                foreach($entries as $entry){
-                    $nentry = iconv("GBK", "UTF-8",$entry);
-                    ChmodMine($nfile.'/'.$nentry, $chmod);
-                }
-            }else{
-                echo $nfile." 文件不存在！\n";
-            }
-        }
-        if($_POST['select_item']['d']){
-            foreach($_POST['select_item']['d'] as $val){
-                ChmodMine($val,$chmod);
-            }
-        }
-        if($_POST['select_item']['f']){
-            foreach($_POST['select_item']['f'] as $val){
-                ChmodMine($val,$chmod);
-            }
-        }
-        echo "</textarea>";
-        mainbottom();
-    }else{
-        printerror("您没有选择文件");
-    }
-    }else{printerror("Windows系统无法修改权限。");}
-    break;
+
+            $res['cpu']['model'][] = $model[1][$i].'&nbsp;('.$mhz[1][$i].')';
+
+            $res['cpu']['mhz'][] = $mhz[1][$i];
+
+            $res['cpu']['cache'][] = $cache[1][$i];
+
+            $res['cpu']['bogomips'][] = $bogomips[1][$i];
+
+        }*/
+		if($res['cpu']['num']==1)
+			$x1 = '';
+		else
+			$x1 = ' x'.$res['cpu']['num'];
+		$mhz[1][0] = ' | 频率:'.$mhz[1][0];
+		$cache[1][0] = ' | 二级缓存:'.$cache[1][0];
+		$bogomips[1][0] = ' | Bogomips:'.$bogomips[1][0];
+		$res['cpu']['model'][] = $model[1][0].$mhz[1][0].$cache[1][0].$bogomips[1][0].$x1;
+
+        if (false !== is_array($res['cpu']['model'])) $res['cpu']['model'] = implode("<br />", $res['cpu']['model']);
+
+        if (false !== is_array($res['cpu']['mhz'])) $res['cpu']['mhz'] = implode("<br />", $res['cpu']['mhz']);
+
+        if (false !== is_array($res['cpu']['cache'])) $res['cpu']['cache'] = implode("<br />", $res['cpu']['cache']);
+
+        if (false !== is_array($res['cpu']['bogomips'])) $res['cpu']['bogomips'] = implode("<br />", $res['cpu']['bogomips']);
+
+	}
+
+
+    // NETWORK
+
+
+    // UPTIME
+
+    if (false === ($str = @file("/proc/uptime"))) return false;
+
+    $str = explode(" ", implode("", $str));
+
+    $str = trim($str[0]);
+
+    $min = $str / 60;
+
+    $hours = $min / 60;
+
+    $days = floor($hours / 24);
+
+    $hours = floor($hours - ($days * 24));
+
+    $min = floor($min - ($days * 60 * 24) - ($hours * 60));
+
+    if ($days !== 0) $res['uptime'] = $days."天";
+
+    if ($hours !== 0) $res['uptime'] .= $hours."小时";
+
+    $res['uptime'] .= $min."分钟";
+
+
+    // MEMORY
+
+    if (false === ($str = @file("/proc/meminfo"))) return false;
+
+    $str = implode("", $str);
+
+    preg_match_all("/MemTotal\s{0,}\:+\s{0,}([\d\.]+).+?MemFree\s{0,}\:+\s{0,}([\d\.]+).+?Cached\s{0,}\:+\s{0,}([\d\.]+).+?SwapTotal\s{0,}\:+\s{0,}([\d\.]+).+?SwapFree\s{0,}\:+\s{0,}([\d\.]+)/s", $str, $buf);
+	preg_match_all("/Buffers\s{0,}\:+\s{0,}([\d\.]+)/s", $str, $buffers);
+
+
+    $res['memTotal'] = round($buf[1][0]/1024, 2);
+
+    $res['memFree'] = round($buf[2][0]/1024, 2);
+
+    $res['memBuffers'] = round($buffers[1][0]/1024, 2);
+	$res['memCached'] = round($buf[3][0]/1024, 2);
+
+    $res['memUsed'] = $res['memTotal']-$res['memFree'];
+
+    $res['memPercent'] = (floatval($res['memTotal'])!=0)?round($res['memUsed']/$res['memTotal']*100,2):0;
+
+
+    $res['memRealUsed'] = $res['memTotal'] - $res['memFree'] - $res['memCached'] - $res['memBuffers']; //真实内存使用
+	$res['memRealFree'] = $res['memTotal'] - $res['memRealUsed']; //真实空闲
+    $res['memRealPercent'] = (floatval($res['memTotal'])!=0)?round($res['memRealUsed']/$res['memTotal']*100,2):0; //真实内存使用率
+
+	$res['memCachedPercent'] = (floatval($res['memCached'])!=0)?round($res['memCached']/$res['memTotal']*100,2):0; //Cached内存使用率
+
+    $res['swapTotal'] = round($buf[4][0]/1024, 2);
+
+    $res['swapFree'] = round($buf[5][0]/1024, 2);
+
+    $res['swapUsed'] = round($res['swapTotal']-$res['swapFree'], 2);
+
+    $res['swapPercent'] = (floatval($res['swapTotal'])!=0)?round($res['swapUsed']/$res['swapTotal']*100,2):0;
+
+
+    // LOAD AVG
+
+    if (false === ($str = @file("/proc/loadavg"))) return false;
+
+    $str = explode(" ", implode("", $str));
+
+    $str = array_chunk($str, 4);
+
+    $res['loadAvg'] = implode(" ", $str[0]);
+
+
+    return $res;
 
 }
 
-/****************************************************************/
-/* function switch()                                            */
-/*                                                              */
-/* Switches functions.                                          */
-/* Recieves $op() and switches to it                            *.
-/****************************************************************/
 
-switch($op) {
-    case "home":
-    home();
-    break;
 
-    case "up":
-    up();
-    break;
+//FreeBSD系统探测
 
-    case "yupload":
-    if(!isset($_REQUEST['url'])){
-    	printerror('您没有输入文件地址！');
-    }elseif(isset($_REQUEST['ndir'])){
-        yupload($_REQUEST['url'], $_REQUEST['ndir'], $_REQUEST['unzip'],$_REQUEST['delzip']);
-    }else{
-    	yupload($_REQUEST['url'], './',$_REQUEST['unzip'],$_REQUEST['delzip']);
-    }
-    break;
+function sys_freebsd()
+{
 
-    case "upload":
-    if(!isset($_FILES['upfile'])){
-    	printerror('您没有选择文件！');
-    }elseif(isset($_REQUEST['ndir'])){
-        upload($_FILES['upfile'], $_REQUEST['ndir'], $_REQUEST['unzip'] ,$_REQUEST['delzip']);
-    }else{
-    	upload($_FILES['upfile'], './', $_REQUEST['unzip'] ,$_REQUEST['delzip']);
-    }
-    break;
+	//CPU
 
-    case "unz":
-    unz($_REQUEST['dename']);
-    break;
+	if (false === ($res['cpu']['num'] = get_key("hw.ncpu"))) return false;
 
-    case "unzip":
-    unzip($_REQUEST['dename'],$_REQUEST['ndir'],$_REQUEST['del']);
-    break;
+	$res['cpu']['model'] = get_key("hw.model");
 
-    case "sqlb":
-    sqlb();
-    break;
+	//LOAD AVG
 
-    case "sqlbackup":
-    sqlbackup($_POST['ip'], $_POST['sql'], $_POST['username'], $_POST['password']);
-    break;
+	if (false === ($res['loadAvg'] = get_key("vm.loadavg"))) return false;
 
-    case "ftpa":
-    ftpa();
-    break;
+	//UPTIME
 
-    case "ftpall":
-    ftpall($_POST['ftpip'], $_POST['ftpuser'], $_POST['ftppass'], $_POST['goto'], $_POST['ftpfile'], $_POST['del']);
-    break;
+	if (false === ($buf = get_key("kern.boottime"))) return false;
 
-    case "edit":
-    edit($_REQUEST['fename']);
-    break;
+	$buf = explode(' ', $buf);
 
-    case "save":
-    save($_REQUEST['ncontent'], $_REQUEST['fename'], $_REQUEST['encode']);
-    break;
+	$sys_ticks = time() - intval($buf[3]);
 
-    case "cr":
-    cr();
-    break;
+	$min = $sys_ticks / 60;
 
-    case "create":
-    create($_REQUEST['nfname'], $_REQUEST['isfolder'], $_REQUEST['ndir']);
-    break;
+	$hours = $min / 60;
 
-    case "ren":
-    ren($_REQUEST['file']);
-    break;
+	$days = floor($hours / 24);
 
-    case "rename":
-    renam($_REQUEST['rename'], $_REQUEST['nrename'], $folder);
-    break;
+	$hours = floor($hours - ($days * 24));
 
-    case "movall":
-    movall($_REQUEST['file'], $_REQUEST['ndir'], $folder);
-    break;
+	$min = floor($min - ($days * 60 * 24) - ($hours * 60));
 
-    case "copy":
-    tocopy($_REQUEST['file'], $_REQUEST['ndir'], $folder);
-    break;
+	if ($days !== 0) $res['uptime'] = $days."天";
 
-    case "printerror":
-    printerror($error);
-    break;
+	if ($hours !== 0) $res['uptime'] .= $hours."小时";
 
-    case "logout":
-    logout();
-    break;   
+	$res['uptime'] .= $min."分钟";
 
-    case "z":
-    z($_REQUEST['dename'],$_REQUEST['folder']);
-    break;
+	//MEMORY
 
-    case "zip":
-    zip($_REQUEST['dename'],$_REQUEST['folder']);
-    break;
+	if (false === ($buf = get_key("hw.physmem"))) return false;
 
-    default:
-    home();
-    break;
+	$res['memTotal'] = round($buf/1024/1024, 2);
+
+
+	$str = get_key("vm.vmtotal");
+
+	preg_match_all("/\nVirtual Memory[\:\s]*\(Total[\:\s]*([\d]+)K[\,\s]*Active[\:\s]*([\d]+)K\)\n/i", $str, $buff, PREG_SET_ORDER);
+
+	preg_match_all("/\nReal Memory[\:\s]*\(Total[\:\s]*([\d]+)K[\,\s]*Active[\:\s]*([\d]+)K\)\n/i", $str, $buf, PREG_SET_ORDER);
+
+
+	$res['memRealUsed'] = round($buf[0][2]/1024, 2);
+
+	$res['memCached'] = round($buff[0][2]/1024, 2);
+
+	$res['memUsed'] = round($buf[0][1]/1024, 2) + $res['memCached'];
+
+	$res['memFree'] = $res['memTotal'] - $res['memUsed'];
+
+	$res['memPercent'] = (floatval($res['memTotal'])!=0)?round($res['memUsed']/$res['memTotal']*100,2):0;
+
+
+	$res['memRealPercent'] = (floatval($res['memTotal'])!=0)?round($res['memRealUsed']/$res['memTotal']*100,2):0;
+
+
+	return $res;
+
+}
+
+
+
+//取得参数值 FreeBSD
+
+function get_key($keyName)
+{
+
+	return do_command('sysctl', "-n $keyName");
+
+}
+
+
+
+//确定执行文件位置 FreeBSD
+
+function find_command($commandName)
+{
+
+	$path = array('/bin', '/sbin', '/usr/bin', '/usr/sbin', '/usr/local/bin', '/usr/local/sbin');
+
+	foreach($path as $p) 
+	{
+
+		if (@is_executable("$p/$commandName")) return "$p/$commandName";
+
+	}
+
+	return false;
+
+}
+
+
+
+//执行系统命令 FreeBSD
+
+function do_command($commandName, $args)
+{
+
+	$buffer = "";
+
+	if (false === ($command = find_command($commandName))) return false;
+
+	if ($fp = @popen("$command $args", 'r')) 
+	{
+
+		while (!@feof($fp))
+		{
+
+			$buffer .= @fgets($fp, 4096);
+
+		}
+
+		return trim($buffer);
+
+	}
+
+	return false;
+
+}
+
+
+
+//windows系统探测
+
+function sys_windows()
+{
+
+	if (PHP_VERSION >= 5)
+	{
+
+		$objLocator = new COM("WbemScripting.SWbemLocator");
+
+		$wmi = $objLocator->ConnectServer();
+
+		$prop = $wmi->get("Win32_PnPEntity");
+
+	}
+	else
+	{
+		return false;
+
+	}
+
+
+
+	//CPU
+
+	$cpuinfo = GetWMI($wmi,"Win32_Processor", array("Name","L2CacheSize","NumberOfCores"));
+
+	$res['cpu']['num'] = $cpuinfo[0]['NumberOfCores'];
+
+	if (null == $res['cpu']['num']) 
+	{
+
+		$res['cpu']['num'] = 1;
+
+	}/*
+
+	for ($i=0;$i<$res['cpu']['num'];$i++)
+	{
+
+		$res['cpu']['model'] .= $cpuinfo[0]['Name']."<br />";
+
+		$res['cpu']['cache'] .= $cpuinfo[0]['L2CacheSize']."<br />";
+
+	}*/
+	$cpuinfo[0]['L2CacheSize'] = ' ('.$cpuinfo[0]['L2CacheSize'].')';
+	if($res['cpu']['num']==1)
+		$x1 = '';
+	else
+		$x1 = ' x'.$res['cpu']['num'];
+	$res['cpu']['model'] = $cpuinfo[0]['Name'].$cpuinfo[0]['L2CacheSize'].$x1;
+
+	// SYSINFO
+
+	$sysinfo = GetWMI($wmi,"Win32_OperatingSystem", array('LastBootUpTime','TotalVisibleMemorySize','FreePhysicalMemory','Caption','CSDVersion','SerialNumber','InstallDate'));
+
+	$sysinfo[0]['Caption']=iconv('GBK', 'UTF-8',$sysinfo[0]['Caption']);
+
+	$sysinfo[0]['CSDVersion']=iconv('GBK', 'UTF-8',$sysinfo[0]['CSDVersion']);
+
+	$res['win_n'] = $sysinfo[0]['Caption']." ".$sysinfo[0]['CSDVersion']." 序列号:{$sysinfo[0]['SerialNumber']} 于".date('Y年m月d日H:i:s',strtotime(substr($sysinfo[0]['InstallDate'],0,14)))."安装";
+
+	//UPTIME
+
+	$res['uptime'] = $sysinfo[0]['LastBootUpTime'];
+
+
+	$sys_ticks = 3600*8 + time() - strtotime(substr($res['uptime'],0,14));
+
+	$min = $sys_ticks / 60;
+
+	$hours = $min / 60;
+
+	$days = floor($hours / 24);
+
+	$hours = floor($hours - ($days * 24));
+
+	$min = floor($min - ($days * 60 * 24) - ($hours * 60));
+
+	if ($days !== 0) $res['uptime'] = $days."天";
+
+	if ($hours !== 0) $res['uptime'] .= $hours."小时";
+
+	$res['uptime'] .= $min."分钟";
+
+
+	//MEMORY
+
+	$res['memTotal'] = round($sysinfo[0]['TotalVisibleMemorySize']/1024,2);
+
+	$res['memFree'] = round($sysinfo[0]['FreePhysicalMemory']/1024,2);
+
+	$res['memUsed'] = $res['memTotal']-$res['memFree'];	//上面两行已经除以1024,这行不用再除了
+
+	$res['memPercent'] = round($res['memUsed'] / $res['memTotal']*100,2);
+
+
+	$swapinfo = GetWMI($wmi,"Win32_PageFileUsage", array('AllocatedBaseSize','CurrentUsage'));
+
+
+	// LoadPercentage
+
+	$loadinfo = GetWMI($wmi,"Win32_Processor", array("LoadPercentage"));
+
+	$res['loadAvg'] = $loadinfo[0]['LoadPercentage'];
+
+
+	return $res;
+
+}
+
+
+
+function GetWMI($wmi,$strClass, $strValue = array())
+{
+
+	$arrData = array();
+
+
+	$objWEBM = $wmi->Get($strClass);
+
+	$arrProp = $objWEBM->Properties_;
+
+	$arrWEBMCol = $objWEBM->Instances_();
+
+	foreach($arrWEBMCol as $objItem) 
+	{
+
+		@reset($arrProp);
+
+		$arrInstance = array();
+
+		foreach($arrProp as $propItem) 
+		{
+
+			eval("\$value = \$objItem->" . $propItem->Name . ";");
+
+			if (empty($strValue)) 
+			{
+
+				$arrInstance[$propItem->Name] = trim($value);
+
+			} 
+			else
+			{
+
+				if (in_array($propItem->Name, $strValue)) 
+				{
+
+					$arrInstance[$propItem->Name] = trim($value);
+
+				}
+
+			}
+
+		}
+
+		$arrData[] = $arrInstance;
+
+	}
+
+	return $arrData;
+
+}
+
+
+
+//比例条
+
+function bar($percent)
+{
+
+?>
+
+	<div class="bar"><div class="barli" style="width:<?php echo $percent?>%">&nbsp;</div></div>
+
+<?php
+
+}
+
+
+
+$uptime = $sysInfo['uptime']; //在线时间
+
+$stime = date('Y-m-d H:i:s'); //系统当前时间
+
+//硬盘
+
+$dt = round(@disk_total_space(".")/(1024*1024*1024),3); //总
+$df = round(@disk_free_space(".")/(1024*1024*1024),3); //可用
+$du = $dt-$df; //已用
+$hdPercent = (floatval($dt)!=0)?round($du/$dt*100,2):0;
+
+$load = $sysInfo['loadAvg'];	//系统负载
+
+
+//判断内存如果小于1G，就显示M，否则显示G单位
+if($sysInfo['memTotal']<1024)
+{
+	$memTotal = $sysInfo['memTotal']." M";
+	$mt = $sysInfo['memTotal']." M";
+	$mu = $sysInfo['memUsed']." M";
+	$mf = $sysInfo['memFree']." M";
+	$mc = $sysInfo['memCached']." M";	//cache化内存
+	$mb = $sysInfo['memBuffers']." M";	//缓冲
+	$st = $sysInfo['swapTotal']." M";
+	$su = $sysInfo['swapUsed']." M";
+	$sf = $sysInfo['swapFree']." M";
+	$swapPercent = $sysInfo['swapPercent'];
+	$memRealUsed = $sysInfo['memRealUsed']." M"; //真实内存使用
+	$memRealFree = $sysInfo['memRealFree']." M"; //真实内存空闲
+	$memRealPercent = $sysInfo['memRealPercent']; //真实内存使用比率
+	$memPercent = $sysInfo['memPercent']; //内存总使用率
+	$memCachedPercent = $sysInfo['memCachedPercent']; //cache内存使用率
+}
+else
+{
+	$memTotal = round($sysInfo['memTotal']/1024,3)." G";
+	$mt = round($sysInfo['memTotal']/1024,3)." G";
+	$mu = round($sysInfo['memUsed']/1024,3)." G";
+	$mf = round($sysInfo['memFree']/1024,3)." G";
+	$mc = round($sysInfo['memCached']/1024,3)." G";
+	$mb = round($sysInfo['memBuffers']/1024,3)." G";
+	$st = round($sysInfo['swapTotal']/1024,3)." G";
+	$su = round($sysInfo['swapUsed']/1024,3)." G";
+	$sf = round($sysInfo['swapFree']/1024,3)." G";
+	$swapPercent = $sysInfo['swapPercent'];
+	$memRealUsed = round($sysInfo['memRealUsed']/1024,3)." G"; //真实内存使用
+	$memRealFree = round($sysInfo['memRealFree']/1024,3)." G"; //真实内存空闲
+	$memRealPercent = $sysInfo['memRealPercent']; //真实内存使用比率
+	$memPercent = $sysInfo['memPercent']; //内存总使用率
+	$memCachedPercent = $sysInfo['memCachedPercent']; //cache内存使用率
+}
+
+
+//网卡流量
+
+$strs = @file("/proc/net/dev"); 
+
+
+
+for ($i = 2; $i < count($strs); $i++ )
+{
+	preg_match_all( "/([^\s]+):[\s]{0,}(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/", $strs[$i], $info );
+	$NetOutSpeed[$i] = $info[10][0];
+	$NetInputSpeed[$i] = $info[2][0];
+	$NetInput[$i] = formatsize($info[2][0]);
+	$NetOut[$i]  = formatsize($info[10][0]);
+}
+
+
+//ajax调用实时刷新
+
+if ($_GET['act'] == "rt")
+
+{
+
+	$arr=array('useSpace'=>"$du",'freeSpace'=>"$df",'hdPercent'=>"$hdPercent",'barhdPercent'=>"$hdPercent%",'TotalMemory'=>"$mt",'UsedMemory'=>"$mu",'FreeMemory'=>"$mf",'CachedMemory'=>"$mc",'Buffers'=>"$mb",'TotalSwap'=>"$st",'swapUsed'=>"$su",'swapFree'=>"$sf",'loadAvg'=>"$load",'uptime'=>"$uptime",'freetime'=>"$freetime",'bjtime'=>"$bjtime",'stime'=>"$stime",'memRealPercent'=>"$memRealPercent",'memRealUsed'=>"$memRealUsed",'memRealFree'=>"$memRealFree",'memPercent'=>"$memPercent%",'memCachedPercent'=>"$memCachedPercent",'barmemCachedPercent'=>"$memCachedPercent%",'swapPercent'=>"$swapPercent",'barmemRealPercent'=>"$memRealPercent%",'barswapPercent'=>"$swapPercent%",'NetOut2'=>"$NetOut[2]",'NetOut3'=>"$NetOut[3]",'NetOut4'=>"$NetOut[4]",'NetOut5'=>"$NetOut[5]",'NetOut6'=>"$NetOut[6]",'NetOut7'=>"$NetOut[7]",'NetOut8'=>"$NetOut[8]",'NetOut9'=>"$NetOut[9]",'NetOut10'=>"$NetOut[10]",'NetInput2'=>"$NetInput[2]",'NetInput3'=>"$NetInput[3]",'NetInput4'=>"$NetInput[4]",'NetInput5'=>"$NetInput[5]",'NetInput6'=>"$NetInput[6]",'NetInput7'=>"$NetInput[7]",'NetInput8'=>"$NetInput[8]",'NetInput9'=>"$NetInput[9]",'NetInput10'=>"$NetInput[10]",'NetOutSpeed2'=>"$NetOutSpeed[2]",'NetOutSpeed3'=>"$NetOutSpeed[3]",'NetOutSpeed4'=>"$NetOutSpeed[4]",'NetOutSpeed5'=>"$NetOutSpeed[5]",'NetInputSpeed2'=>"$NetInputSpeed[2]",'NetInputSpeed3'=>"$NetInputSpeed[3]",'NetInputSpeed4'=>"$NetInputSpeed[4]",'NetInputSpeed5'=>"$NetInputSpeed[5]");
+
+	$jarr=json_encode($arr); 
+	$_GET['callback'] = htmlspecialchars($_GET['callback']);
+
+	echo $_GET['callback'],'(',$jarr,')';
+
+	exit;
+
 }
 
 ?>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title><?php echo $title; ?></title>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7" />
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- Powered by: Yahei.Net -->
+
+<link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+
+<link href="data:image/png;base64,Qk02AwAAAAAAADYAAAAoAAAAEAAAABAAAAABABgAAAAAAAADAADEDgAAxA4AAAAAAAAAAAAAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICA19fX19fX19fXwICAwICAwICAwICAwICAwICAwICA19fX19fX19fXwICAwICAwICA19fXAAAA19fXwICAwICAwICAwICAwICAwICAwICA19fXAAAA19fXwICAwICAwICA19fXAAAA19fX19fXwICAwICA19fXwICAwICA19fX19fXAAAA19fX19fXwICAwICA19fXAAAAAAAAAAAA19fX19fXAAAA19fX19fXAAAA19fXAAAAAAAAAAAA19fX19fX19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fX19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fX19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fXAAAA19fX19fXAAAA19fX19fXAAAAAAAAAAAA19fX19fXAAAAAAAAAAAA19fX19fXAAAAAAAAAAAA19fX19fXwICA19fX19fX19fXwICA19fXAAAA19fX19fXwICAwICA19fX19fX19fXwICAwICAwICAwICAwICAwICAwICA19fXAAAA19fXwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICA19fX19fX19fXwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICAwICA" type="image/x-icon" rel="icon" />
+
+<style type="text/css">
+<!--
+body{margin: 0 auto; padding: 0; background-color:#eee;font-size:14px;font-family: Noto Sans CJK SC,Microsoft Yahei,Hiragino Sans GB,WenQuanYi Micro Hei,sans-serif;}
+a,input,button{outline: none !important;-webkit-appearance: none;border-radius: 0;}
+button::-moz-focus-inner,input::-moz-focus-inner{border-color:transparent !important;}
+:focus {border: none;outline: 0;}
+h1 {font-size: 26px; padding: 0; margin: 0; color: #333333;}
+h1 small {font-size: 11px; font-family: Tahoma; font-weight: bold; }
+a{color: #666; text-decoration:none;}
+a.black{color: #000000; text-decoration:none;}
+table{width:100%;clear:both;padding: 0; margin: 0 0 18px;border-collapse:collapse; border-spacing: 0;box-shadow: 1px 1px 4px #999;}
+th{padding: 6px 12px; font-weight:bold;background:#9191c4;color:#000;border:1px solid #9191c4; text-align:left;font-size:16px;border-bottom: 0px;font-weight: normal;}
+tr{padding: 0; background:#FFFFFF;}
+td{padding: 3px 6px; border:1px solid #CCCCCC;}
+#nav{height:48px;font-size: 15px;background-color:#447;color:#fff !important;position:fixed;top:0px;width:100%;cursor: default;}
+.w_logo{height:29px; padding:9px 24px;display: inline-block;font-size: 18px;float:left;}
+.w_top{height:24px;color:#fff;font-size: 15px;display: inline-block;padding:12px 24px;transition: background-color 0.2s;float:left;cursor: default;}
+.w_top:hover{background:#0C2136;}
+.w_foot{height:25px;text-align:center; background:#dedede;}
+input{padding: 2px; background: #FFFFFF;border:1px solid #888;font-size:12px; color:#000;}
+input:focus{border:1px solid #666;}
+input.btn{line-height: 20px; padding: 6px 15px; color:#fff; background: #447; font-size:12px; border:0;transition: background-color 0.2s;box-shadow: 0 0 1px #888888;}
+input.btn:hover{background:#558;}
+.bar {border:0; background:#ddd; height:15px; font-size:2px; width:89%; margin:2px 0 5px 0;overflow: hidden;}
+.barli_red{background:#d9534f; height:15px; margin:0px; padding:0;}
+.barli_blue{background:#337ab7; height:15px; margin:0px; padding:0;}
+.barli_green{background:#5cb85c; height:15px; margin:0px; padding:0;}
+.barli_orange{background:#f0ad4e; height:15px; margin:0px; padding:0;}
+.barli_blue2{background:#5bc0de; height:15px; margin:0px; padding:0;}
+#page {max-width: 1080px; padding: 0 auto; margin: 80px auto 0; text-align: left;}
+#header{position:relative; padding:5px;}
+.w_small{font-family: Courier New;}
+.w_number{color: #177BBE;}
+.sudu {padding: 0; background:#5dafd1; }
+.suduk { margin:0px; padding:0;}
+.resYes{}
+.resNo{color: #FF0000;}
+.word{word-break:break-all;}
+@media screen and (max-width: 1180px){
+	#page {margin: 80px 50px 0; }
+}
+-->
+</style>
+
+<script language="JavaScript" type="text/javascript" src="http://lib.sinaapp.com/js/jquery/1.7/jquery.min.js"></script>
+
+<script type="text/javascript"> 
+
+<!--
+
+$(document).ready(function(){getJSONData();});
+var OutSpeed2=<?php echo floor($NetOutSpeed[2]) ?>;
+var OutSpeed3=<?php echo floor($NetOutSpeed[3]) ?>;
+var OutSpeed4=<?php echo floor($NetOutSpeed[4]) ?>;
+var OutSpeed5=<?php echo floor($NetOutSpeed[5]) ?>;
+var InputSpeed2=<?php echo floor($NetInputSpeed[2]) ?>;
+var InputSpeed3=<?php echo floor($NetInputSpeed[3]) ?>;
+var InputSpeed4=<?php echo floor($NetInputSpeed[4]) ?>;
+var InputSpeed5=<?php echo floor($NetInputSpeed[5]) ?>;
+
+function getJSONData()
+
+{
+
+	setTimeout("getJSONData()", 1000);
+
+	$.getJSON('?act=rt&callback=?', displayData);
+
+}
+function ForDight(Dight,How)
+{ 
+  if (Dight<0){
+  	var Last=0+"B/s";
+  }else if (Dight<1024){
+  	var Last=Math.round(Dight*Math.pow(10,How))/Math.pow(10,How)+"B/s";
+  }else if (Dight<1048576){
+  	Dight=Dight/1024;
+  	var Last=Math.round(Dight*Math.pow(10,How))/Math.pow(10,How)+"K/s";
+  }else{
+  	Dight=Dight/1048576;
+  	var Last=Math.round(Dight*Math.pow(10,How))/Math.pow(10,How)+"M/s";
+  }
+	return Last; 
+}
+
+function displayData(dataJSON)
+
+{
+	$("#useSpace").html(dataJSON.useSpace);
+
+	$("#freeSpace").html(dataJSON.freeSpace);
+	$("#hdPercent").html(dataJSON.hdPercent);
+	$("#barhdPercent").width(dataJSON.barhdPercent);
+
+	$("#TotalMemory").html(dataJSON.TotalMemory);
+
+	$("#UsedMemory").html(dataJSON.UsedMemory);
+
+	$("#FreeMemory").html(dataJSON.FreeMemory);
+
+	$("#CachedMemory").html(dataJSON.CachedMemory);
+	$("#Buffers").html(dataJSON.Buffers);
+
+	$("#TotalSwap").html(dataJSON.TotalSwap);
+
+	$("#swapUsed").html(dataJSON.swapUsed);
+
+	$("#swapFree").html(dataJSON.swapFree);
+
+	$("#swapPercent").html(dataJSON.swapPercent);
+
+	$("#loadAvg").html(dataJSON.loadAvg);
+
+	$("#uptime").html(dataJSON.uptime);
+
+	$("#freetime").html(dataJSON.freetime);
+
+	$("#stime").html(dataJSON.stime);
+
+	$("#bjtime").html(dataJSON.bjtime);
+
+	$("#memRealUsed").html(dataJSON.memRealUsed);
+	$("#memRealFree").html(dataJSON.memRealFree);
+	$("#memRealPercent").html(dataJSON.memRealPercent);
+
+	$("#memPercent").html(dataJSON.memPercent);
+	$("#barmemPercent").width(dataJSON.memPercent);
+
+	$("#barmemRealPercent").width(dataJSON.barmemRealPercent);
+	$("#memCachedPercent").html(dataJSON.memCachedPercent);
+	$("#barmemCachedPercent").width(dataJSON.barmemCachedPercent);
+
+	$("#barswapPercent").width(dataJSON.barswapPercent);
+
+	$("#NetOut2").html(dataJSON.NetOut2);
+
+	$("#NetOut3").html(dataJSON.NetOut3);
+
+	$("#NetOut4").html(dataJSON.NetOut4);
+
+	$("#NetOut5").html(dataJSON.NetOut5);
+
+	$("#NetOut6").html(dataJSON.NetOut6);
+
+	$("#NetOut7").html(dataJSON.NetOut7);
+
+	$("#NetOut8").html(dataJSON.NetOut8);
+
+	$("#NetOut9").html(dataJSON.NetOut9);
+
+	$("#NetOut10").html(dataJSON.NetOut10);
+	$("#NetInput2").html(dataJSON.NetInput2);
+	$("#NetInput3").html(dataJSON.NetInput3);
+	$("#NetInput4").html(dataJSON.NetInput4);
+	$("#NetInput5").html(dataJSON.NetInput5);
+	$("#NetInput6").html(dataJSON.NetInput6);
+	$("#NetInput7").html(dataJSON.NetInput7);
+	$("#NetInput8").html(dataJSON.NetInput8);
+	$("#NetInput9").html(dataJSON.NetInput9);
+	$("#NetInput10").html(dataJSON.NetInput10);	
+	$("#NetOutSpeed2").html(ForDight((dataJSON.NetOutSpeed2-OutSpeed2),3));	OutSpeed2=dataJSON.NetOutSpeed2;
+	$("#NetOutSpeed3").html(ForDight((dataJSON.NetOutSpeed3-OutSpeed3),3));	OutSpeed3=dataJSON.NetOutSpeed3;
+	$("#NetOutSpeed4").html(ForDight((dataJSON.NetOutSpeed4-OutSpeed4),3));	OutSpeed4=dataJSON.NetOutSpeed4;
+	$("#NetOutSpeed5").html(ForDight((dataJSON.NetOutSpeed5-OutSpeed5),3));	OutSpeed5=dataJSON.NetOutSpeed5;
+	$("#NetInputSpeed2").html(ForDight((dataJSON.NetInputSpeed2-InputSpeed2),3));	InputSpeed2=dataJSON.NetInputSpeed2;
+	$("#NetInputSpeed3").html(ForDight((dataJSON.NetInputSpeed3-InputSpeed3),3));	InputSpeed3=dataJSON.NetInputSpeed3;
+	$("#NetInputSpeed4").html(ForDight((dataJSON.NetInputSpeed4-InputSpeed4),3));	InputSpeed4=dataJSON.NetInputSpeed4;
+	$("#NetInputSpeed5").html(ForDight((dataJSON.NetInputSpeed5-InputSpeed5),3));	InputSpeed5=dataJSON.NetInputSpeed5;
+
+}
+
+-->
+
+</script>
+
+</head>
+
+<body>
+<a name="w_top"></a>
+<div id='nav'>
+	<!--
+	<table>
+		<tr>
+			<th class="w_logo">雅黑PHP探针</th>
+			<th class="w_top"><a href="#w_php">PHP参数</a></th>
+			<th class="w_top"><a href="#w_module">组件支持</a></th>
+			<th class="w_top"><a href="#w_module_other">第三方组件</a></th>
+			<th class="w_top"><a href="#w_db">数据库支持</a></th>
+			<th class="w_top"><a href="#w_performance">性能检测</a></th>
+			<th class="w_top"><a href="#w_networkspeed">网速检测</a></th>
+			<th class="w_top"><a href="#w_MySQL">MySQL检测</a></th>
+			<th class="w_top"><a href="#w_function">函数检测</a></th>
+			<th class="w_top"><a href="#w_mail">邮件检测</a></th>
+		</tr>
+	</table>
+	-->
+	<div style="display: inline-block">
+		<div class="w_logo"><span>PHP探针</span></div>
+	</div>
+	<div style="display: inline-block">
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: 0 }, 200);"><i class="fa fa-tasks"></i> 服务器信息</a>
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: $('#w_php').offset().top }, 200);"><i class="fa fa-tags"></i> PHP参数</a>
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: $('#w_module').offset().top }, 200);"><i class="fa fa-cogs"></i> 组件支持</a>
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: $('#w_module_other').offset().top }, 200);"><i class="fa fa-cubes"></i> 第三方组件</a>
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: $('#w_db').offset().top }, 200);"><i class="fa fa-database"></i> 数据库支持</a>
+		<a class="w_top" onclick="$('body,html').animate({ scrollTop: $('#w_performance').offset().top }, 200);"><i class="fa fa-tachometer"></i> 性能检测</a>
+	</div>
+
+
+</div>
+
+<div id="page">
+
+	
+
+
+
+<!--服务器相关参数-->
+
+<table>
+
+  <tr><th colspan="4"><i class="fa fa-tasks"></i> 服务器参数</th></tr>
+
+  <tr>
+
+    <td>服务器域名/IP地址</td>
+
+    <td colspan="3"><?php echo @get_current_user();?> - <?php echo $_SERVER['SERVER_NAME'];?>(<?php if('/'==DIRECTORY_SEPARATOR){echo $_SERVER['SERVER_ADDR'];}else{echo @gethostbyname($_SERVER['SERVER_NAME']);} ?>)&nbsp;&nbsp;你的IP地址是：<?php echo @$_SERVER['REMOTE_ADDR'];?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>服务器标识</td>
+
+    <td colspan="3"><?php if($sysInfo['win_n'] != ''){echo $sysInfo['win_n'];}else{echo @php_uname();};?></td>
+
+  </tr>
+
+  <tr>
+
+    <td width="13%">服务器操作系统</td>
+
+    <td width="37%"><?php $os = explode(" ", php_uname()); echo $os[0];?> &nbsp;内核版本：<?php if('/'==DIRECTORY_SEPARATOR){echo $os[2];}else{echo $os[1];} ?></td>
+
+    <td width="13%">服务器解译引擎</td>
+
+    <td width="37%"><?php echo $_SERVER['SERVER_SOFTWARE'];?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>服务器语言</td>
+
+    <td><?php echo getenv("HTTP_ACCEPT_LANGUAGE");?></td>
+
+    <td>服务器端口</td>
+
+    <td><?php echo $_SERVER['SERVER_PORT'];?></td>
+
+  </tr>
+
+  <tr>
+
+	  <td>服务器主机名</td>
+
+	  <td><?php if('/'==DIRECTORY_SEPARATOR ){echo $os[1];}else{echo $os[2];} ?></td>
+
+	  <td>绝对路径</td>
+
+	  <td><?php echo $_SERVER['DOCUMENT_ROOT']?str_replace('\\','/',$_SERVER['DOCUMENT_ROOT']):str_replace('\\','/',dirname(__FILE__));?></td>
+
+	</tr>
+
+  <tr>
+
+	  <td>管理员邮箱</td>
+
+	  <td><?php echo $_SERVER['SERVER_ADMIN'];?></td>
+
+		<td>探针路径</td>
+
+		<td><?php echo str_replace('\\','/',__FILE__)?str_replace('\\','/',__FILE__):$_SERVER['SCRIPT_FILENAME'];?></td>
+
+	</tr>	
+
+</table>
+
+
+
+<?if("show"==$sysReShow){?>
+
+<table>
+
+  <tr><th colspan="6"><i class="fa fa-area-chart"></i> 服务器实时数据</th></tr>
+
+  <tr>
+
+    <td width="13%" >服务器当前时间</td>
+
+    <td width="37%" ><span id="stime"><?php echo $stime;?></span></td>
+
+    <td width="13%" >服务器已运行时间</td>
+
+    <td width="37%" colspan="3"><span id="uptime"><?php echo $uptime;?></span></td>
+
+  </tr>
+  <tr>
+
+    <td width="13%">CPU型号 [<?php echo $sysInfo['cpu']['num'];?>核]</td>
+
+    <td width="87%" colspan="5"><?php echo $sysInfo['cpu']['model'];?></td>
+
+  </tr>
+  <tr>
+    <td>CPU使用状况</td>
+    <td colspan="5"><?php if('/'==DIRECTORY_SEPARATOR){echo $cpu_show." | <a href='".$phpSelf."?act=cpu_percentage' target='_blank' class='static'>查看图表 <i class=\"fa fa-external-link\"></i> </a>";}else{echo "暂时只支持Linux系统";}?>
+	</td>
+  </tr>
+  <tr>
+    <td>硬盘使用状况</td>
+    <td colspan="5">
+		总空间 <?php echo $dt;?>&nbsp;G，
+		已用 <font color='#333333'><span id="useSpace"><?php echo $du;?></span></font>&nbsp;G，
+		空闲 <font color='#333333'><span id="freeSpace"><?php echo $df;?></span></font>&nbsp;G，
+		使用率 <span id="hdPercent"><?php echo $hdPercent;?></span>%
+		<div class="bar"><div id="barhdPercent" class="barli_orange" style="width:<?php echo $hdPercent;?>%" >&nbsp;</div> </div>
+	</td>
+  </tr>
+  <tr>
+
+		<td>内存使用状况</td>
+
+		<td colspan="5">
+
+<?php
+
+$tmp = array(
+
+    'memTotal', 'memUsed', 'memFree', 'memPercent',
+
+    'memCached', 'memRealPercent',
+
+    'swapTotal', 'swapUsed', 'swapFree', 'swapPercent'
+
+);
+
+foreach ($tmp AS $v) {
+
+    $sysInfo[$v] = $sysInfo[$v] ? $sysInfo[$v] : 0;
+
+}
+
+?>
+
+          物理内存：共
+
+          <font color='#CC0000'><?php echo $memTotal;?> </font>
+
+           , 已用
+
+          <font color='#CC0000'><span id="UsedMemory"><?php echo $mu;?></span></font>
+
+          , 空闲
+
+          <font color='#CC0000'><span id="FreeMemory"><?php echo $mf;?></span></font>
+
+          , 使用率
+
+		  <span id="memPercent"><?php echo $memPercent;?></span>
+
+          <div class="bar"><div id="barmemPercent" class="barli_green" style="width:<?php echo $memPercent?>%" >&nbsp;</div> </div>
+<?php
+//判断如果cache为0，不显示
+if($sysInfo['memCached']>0)
+{
+?>		
+		  Cache化内存为 <span id="CachedMemory"><?php echo $mc;?></span>
+		  , 使用率 
+          <span id="memCachedPercent"><?php echo $memCachedPercent;?></span>
+		  %	| Buffers缓冲为  <span id="Buffers"><?php echo $mb;?></span>
+          <div class="bar"><div id="barmemCachedPercent" class="barli_blue" style="width:<?php echo $memCachedPercent?>%" >&nbsp;</div></div>
+
+          真实内存使用
+          <span id="memRealUsed"><?php echo $memRealUsed;?></span>
+		  , 真实内存空闲
+          <span id="memRealFree"><?php echo $memRealFree;?></span>
+		  , 使用率
+          <span id="memRealPercent"><?php echo $memRealPercent;?></span>
+          %
+          <div class="bar"><div id="barmemRealPercent" class="barli_blue2" style="width:<?php echo $memRealPercent?>%" >&nbsp;</div></div> 
+<?php
+}
+//判断如果SWAP区为0，不显示
+if($sysInfo['swapTotal']>0)
+{
+?>	
+          SWAP区：共
+          <?php echo $st;?>
+          , 已使用
+          <span id="swapUsed"><?php echo $su;?></span>
+          , 空闲
+          <span id="swapFree"><?php echo $sf;?></span>
+          , 使用率
+          <span id="swapPercent"><?php echo $swapPercent;?></span>
+          %
+          <div class="bar"><div id="barswapPercent" class="barli_red" style="width:<?php echo $swapPercent?>%" >&nbsp;</div> </div>
+
+<?php
+}	
+?>		  
+
+	  </td>
+
+	</tr>
+	  <tr>
+		<td>系统平均负载</td>
+		<td colspan="5" class="w_number"><span id="loadAvg"><?php echo $load;?></span></td>
+	</tr>
+
+</table>
+
+<?}?>
+
+
+
+<?php if (false !== ($strs = @file("/proc/net/dev"))) : ?>
+
+<table>
+
+    <tr><th colspan="5"><i class="fa fa-bar-chart"></i> 网络使用状况</th></tr>
+
+<?php for ($i = 2; $i < count($strs); $i++ ) : ?>
+
+<?php preg_match_all( "/([^\s]+):[\s]{0,}(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/", $strs[$i], $info );?>
+
+     <tr>
+
+        <td width="13%"><?php echo $info[1][0]?> : </td>
+        <td width="29%">入网: <font color='#CC0000'><span id="NetInput<?php echo $i?>"><?php echo $NetInput[$i]?></span></font></td>
+		<td width="14%">实时: <font color='#CC0000'><span id="NetInputSpeed<?php echo $i?>">0B/s</span></font></td>
+        <td width="29%">出网: <font color='#CC0000'><span id="NetOut<?php echo $i?>"><?php echo $NetOut[$i]?></span></font></td>
+		<td width="14%">实时: <font color='#CC0000'><span id="NetOutSpeed<?php echo $i?>">0B/s</span></font></td>
+
+    </tr>
+
+<?php endfor; ?>
+
+</table>
+
+<?php endif; ?>
+
+
+
+<table width="100%" cellpadding="3" cellspacing="0" align="center">
+
+  <tr>
+
+    <th colspan="4"><i class="fa fa-download "></i> PHP已编译模块</th>
+
+  </tr>
+
+  <tr>
+
+    <td colspan="4"><span class="w_small">
+
+<?php
+
+$able=get_loaded_extensions();
+
+foreach ($able as $key=>$value) {
+
+	if ($key!=0 && $key%13==0) {
+
+		echo '<br />';
+
+	}
+
+	echo "$value&nbsp;&nbsp;";
+
+}
+
+?></span>
+
+    </td>
+
+  </tr>
+
+</table>
+
+<a name="w_php" id="w_php" style="position:relative;top:-60px;"></a>
+
+<table>
+
+  <tr><th colspan="4"><i class="fa fa-tags"></i> PHP相关参数</th></tr>
+
+  <tr>
+
+    <td width="32%">PHP信息（phpinfo）：</td>
+
+    <td width="18%">
+
+		<?php
+
+		$phpSelf = $_SERVER[PHP_SELF] ? $_SERVER[PHP_SELF] : $_SERVER[SCRIPT_NAME];
+
+		$disFuns=get_cfg_var("disable_functions");
+
+		?>
+
+    <?php echo (false!==preg_match("phpinfo",$disFuns))? '<font color="red"><i class="fa fa-times"></i></font>' :"<a href='$phpSelf?act=phpinfo' target='_blank'>PHPINFO <i class=\"fa fa-external-link\"></i></a>";?>
+
+    </td>
+
+    <td width="32%">PHP版本（php_version）：</td>
+
+    <td width="18%"><?php echo PHP_VERSION;?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>PHP运行方式：</td>
+
+    <td><?php echo strtoupper(php_sapi_name());?></td>
+
+    <td>脚本占用最大内存（memory_limit）：</td>
+
+    <td><?php echo show("memory_limit");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>PHP安全模式（safe_mode）：</td>
+
+    <td><?php echo show("safe_mode");?></td>
+
+    <td>POST方法提交最大限制（post_max_size）：</td>
+
+    <td><?php echo show("post_max_size");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>上传文件最大限制（upload_max_filesize）：</td>
+
+    <td><?php echo show("upload_max_filesize");?></td>
+
+    <td>浮点型数据显示的有效位数（precision）：</td>
+
+    <td><?php echo show("precision");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>脚本超时时间（max_execution_time）：</td>
+
+    <td><?php echo show("max_execution_time");?>秒</td>
+
+    <td>socket超时时间（default_socket_timeout）：</td>
+
+    <td><?php echo show("default_socket_timeout");?>秒</td>
+
+  </tr>
+
+  <tr>
+
+    <td>PHP页面根目录（doc_root）：</td>
+
+    <td><?php echo show("doc_root");?></td>
+
+    <td>用户根目录（user_dir）：</td>
+
+    <td><?php echo show("user_dir");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>dl()函数（enable_dl）：</td>
+
+    <td><?php echo show("enable_dl");?></td>
+
+    <td>指定包含文件目录（include_path）：</td>
+
+    <td><?php echo show("include_path");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>显示错误信息（display_errors）：</td>
+
+    <td><?php echo show("display_errors");?></td>
+
+    <td>自定义全局变量（register_globals）：</td>
+
+    <td><?php echo show("register_globals");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>数据反斜杠转义（magic_quotes_gpc）：</td>
+
+    <td><?php echo show("magic_quotes_gpc");?></td>
+
+    <td>"&lt;?...?&gt;"短标签（short_open_tag）：</td>
+
+    <td><?php echo show("short_open_tag");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>"&lt;% %&gt;"ASP风格标记（asp_tags）：</td>
+
+    <td><?php echo show("asp_tags");?></td>
+
+    <td>忽略重复错误信息（ignore_repeated_errors）：</td>
+
+    <td><?php echo show("ignore_repeated_errors");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>忽略重复的错误源（ignore_repeated_source）：</td>
+
+    <td><?php echo show("ignore_repeated_source");?></td>
+
+    <td>报告内存泄漏（report_memleaks）：</td>
+
+    <td><?php echo show("report_memleaks");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>自动字符串转义（magic_quotes_gpc）：</td>
+
+    <td><?php echo show("magic_quotes_gpc");?></td>
+
+    <td>外部字符串自动转义（magic_quotes_runtime）：</td>
+
+    <td><?php echo show("magic_quotes_runtime");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>打开远程文件（allow_url_fopen）：</td>
+
+    <td><?php echo show("allow_url_fopen");?></td>
+
+    <td>声明argv和argc变量（register_argc_argv）：</td>
+
+    <td><?php echo show("register_argc_argv");?></td>
+
+  </tr>
+  <tr>
+    <td>Cookie 支持：</td>
+    <td><?php echo isset($_COOKIE)?'<font color="green"><i class="fa fa-check"></i></font>' : '<font color="red"><i class="fa fa-times"></i></font>';?></td>
+    <td>拼写检查（ASpell Library）：</td>
+    <td><?php echo isfun("aspell_check_raw");?></td>
+  </tr>
+   <tr>
+    <td>高精度数学运算（BCMath）：</td>
+    <td><?php echo isfun("bcadd");?></td>
+    <td>PREL相容语法（PCRE）：</td>
+    <td><?php echo isfun("preg_match");?></td>
+   <tr>
+    <td>PDF文档支持：</td>
+    <td><?php echo isfun("pdf_close");?></td>
+    <td>SNMP网络管理协议：</td>
+    <td><?php echo isfun("snmpget");?></td>
+  </tr> 
+   <tr>
+    <td>VMailMgr邮件处理：</td>
+    <td><?php echo isfun("vm_adduser");?></td>
+    <td>Curl支持：</td>
+    <td><?php echo isfun("curl_init");?></td>
+  </tr> 
+   <tr>
+    <td>SMTP支持：</td>
+    <td><?php echo get_cfg_var("SMTP")?'<font color="green"><i class="fa fa-check"></i></font>' : '<font color="red"><i class="fa fa-times"></i></font>';?></td>
+    <td>SMTP地址：</td>
+    <td><?php echo get_cfg_var("SMTP")?get_cfg_var("SMTP"):'<font color="red"><i class="fa fa-times"></i></font>';?></td>
+  </tr> 
+
+	<tr>
+		<td>默认支持函数（enable_functions）：</td>
+		<td colspan="3"><a href='<?php echo $phpSelf;?>?act=Function' target='_blank' class='static'>查看详细 <i class="fa fa-external-link"></i></a></td>		
+	</tr>
+	<tr>
+		<td>被禁用的函数（disable_functions）：</td>
+		<td colspan="3" class="word">
+<?php 
+$disFuns=get_cfg_var("disable_functions");
+if(empty($disFuns))
+{
+	echo '<font color=red><i class="fa fa-times"></i></font>';
+}
+else
+{ 
+	//echo $disFuns;
+	$disFuns_array =  explode(',',$disFuns);
+	foreach ($disFuns_array as $key=>$value) 
+	{
+		if ($key!=0 && $key%5==0) {
+			echo '<br />';
+	}
+	echo "$value&nbsp;&nbsp;";
+}	
+}
+
+?>
+		</td>
+	</tr>
+
+</table>
+
+<a name="w_module" id="w_module" style="position:relative;top:-60px;"></a>
+
+<!--组件信息-->
+
+<table>
+
+  <tr><th colspan="4" ><i class="fa fa-cogs"></i> 组件支持</th></tr>
+
+  <tr>
+
+    <td width="32%">FTP支持：</td>
+
+    <td width="18%"><?php echo isfun("ftp_login");?></td>
+
+    <td width="32%">XML解析支持：</td>
+
+    <td width="18%"><?php echo isfun("xml_set_object");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>Session支持：</td>
+
+    <td><?php echo isfun("session_start");?></td>
+
+    <td>Socket支持：</td>
+
+    <td><?php echo isfun("socket_accept");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>Calendar支持</td>
+
+    <td><?php echo isfun('cal_days_in_month');?>
+	</td>
+
+    <td>允许URL打开文件：</td>
+
+    <td><?php echo show("allow_url_fopen");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>GD库支持：</td>
+
+    <td>
+
+    <?php
+
+        if(function_exists(gd_info)) {
+
+            $gd_info = @gd_info();
+
+	        echo $gd_info["GD Version"];
+
+	    }else{echo '<font color="red"><i class="fa fa-times"></i></font>';}
+
+	?></td>
+
+    <td>压缩文件支持(Zlib)：</td>
+
+    <td><?php echo isfun("gzclose");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>IMAP电子邮件系统函数库：</td>
+
+    <td><?php echo isfun("imap_close");?></td>
+
+    <td>历法运算函数库：</td>
+
+    <td><?php echo isfun("JDToGregorian");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>正则表达式函数库：</td>
+
+    <td><?php echo isfun("preg_match");?></td>
+
+    <td>WDDX支持：</td>
+
+    <td><?php echo isfun("wddx_add_vars");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>Iconv编码转换：</td>
+
+    <td><?php echo isfun("iconv");?></td>
+
+    <td>mbstring：</td>
+
+    <td><?php echo isfun("mb_eregi");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>高精度数学运算：</td>
+
+    <td><?php echo isfun("bcadd");?></td>
+
+    <td>LDAP目录协议：</td>
+
+    <td><?php echo isfun("ldap_close");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>MCrypt加密处理：</td>
+
+    <td><?php echo isfun("mcrypt_cbc");?></td>
+
+    <td>哈稀计算：</td>
+
+    <td><?php echo isfun("mhash_count");?></td>
+
+  </tr>
+
+</table>
+
+<a name="w_module_other" id="w_module_other" style="position:relative;top:-60px;"></a>
+<!--第三方组件信息-->
+<table>
+  <tr><th colspan="4" ><i class="fa fa-cubes"></i> 第三方组件</th></tr>
+  <tr>
+    <td width="32%">Zend版本</td>
+    <td width="18%"><?php $zend_version = zend_version();if(empty($zend_version)){echo '<font color=red><i class="fa fa-times"></i></font>';}else{echo $zend_version;}?></td>
+    <td width="32%">
+<?php
+$PHP_VERSION = PHP_VERSION;
+$PHP_VERSION = substr($PHP_VERSION,2,1);
+if($PHP_VERSION > 2)
+{
+	echo "ZendGuardLoader[启用]";
+}
+else
+{
+	echo "Zend Optimizer";
+}
+?>
+	</td>
+    <td width="18%"><?php if($PHP_VERSION > 2){echo (get_cfg_var("zend_loader.enable"))?'<font color=green><i class="fa fa-check"></i></font>':'<font color=red><i class="fa fa-times"></i></font>';} else{if(function_exists('zend_optimizer_version')){	echo zend_optimizer_version();}else{	echo (get_cfg_var("zend_optimizer.optimization_level")||get_cfg_var("zend_extension_manager.optimizer_ts")||get_cfg_var("zend.ze1_compatibility_mode")||get_cfg_var("zend_extension_ts"))?'<font color=green><i class="fa fa-check"></i></font>':'<font color=red><i class="fa fa-times"></i></font>';}}?></td>
+  </tr>
+  <tr>
+    <td>eAccelerator</td>
+    <td><?php if((phpversion('eAccelerator'))!=''){echo phpversion('eAccelerator');}else{ echo "<font color=red><i class=\"fa fa-times\"></i></font>";} ?></td>
+    <td>ioncube</td>
+    <td><?php if(extension_loaded('ionCube Loader')){   $ys = ioncube_loader_iversion();   $gm = ".".(int)substr($ys,3,2);   echo ionCube_Loader_version().$gm;}else{echo "<font color=red><i class=\"fa fa-times\"></i></font>";}?></td>
+  </tr>
+  <tr>
+    <td>XCache</td>
+    <td><?php if((phpversion('XCache'))!=''){echo phpversion('XCache');}else{ echo "<font color=red><i class=\"fa fa-times\"></i></font>";} ?></td>
+    <td>APC</td>
+    <td><?php if((phpversion('APC'))!=''){echo phpversion('APC');}else{ echo "<font color=red><i class=\"fa fa-times\"></i></font>";} ?></td>
+  </tr>
+</table>
+
+<a name="w_db" id="w_db" style="position:relative;top:-60px;"></a>
+
+<!--数据库支持-->
+
+<table>
+
+  <tr><th colspan="4"><i class="fa fa-database"></i> 数据库支持</th></tr>
+
+  <tr>
+
+    <td width="32%">MySQL 数据库：</td>
+
+    <td width="18%"><?php echo function_exists("mysqli_close")||function_exists("mysql_close")?'<font color=green><i class="fa fa-check"></i></font>':'<font color=red><i class="fa fa-times"></i></font>';?>
+
+    <?php
+    if(function_exists("mysql_get_server_info")) {
+
+        $s = @mysql_get_server_info();
+
+        $s = $s ? '&nbsp; mysql_server 版本：'.$s : '';
+
+	    $c = '&nbsp; mysql_client 版本：'.@mysql_get_client_info();
+
+        echo $s;
+
+    }
+    if(function_exists("mysqli_get_server_info")) {
+
+        echo explode(' - ', mysqli_get_client_info() )[0];
+
+    }
+    ?>
+
+	</td>
+
+    <td width="32%">ODBC 数据库：</td>
+
+    <td width="18%"><?php echo isfun("odbc_close");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>Oracle 数据库：</td>
+
+    <td><?php echo isfun("ora_close");?></td>
+
+    <td>SQL Server 数据库：</td>
+
+    <td><?php echo isfun("mssql_close");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>dBASE 数据库：</td>
+
+    <td><?php echo isfun("dbase_close");?></td>
+
+    <td>mSQL 数据库：</td>
+
+    <td><?php echo isfun("msql_close");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>SQLite 数据库：</td>
+
+    <td><?php if(extension_loaded('sqlite3')) {$sqliteVer = SQLite3::version();echo '<font color=green><i class="fa fa-check"></i></font>　';echo "SQLite3　Ver ";echo $sqliteVer[versionString];}else {echo isfun("sqlite_close");if(isfun("sqlite_close") == '<font color="green"><i class="fa fa-check"></i></font>') {echo "&nbsp; 版本： ".@sqlite_libversion();}}?></td>
+
+    <td>Hyperwave 数据库：</td>
+
+    <td><?php echo isfun("hw_close");?></td>
+
+  </tr>
+
+  <tr>
+
+    <td>Postgre SQL 数据库：</td>
+
+    <td><?php echo isfun("pg_close"); ?></td>
+
+    <td>Informix 数据库：</td>
+
+    <td><?php echo isfun("ifx_close");?></td>
+
+  </tr>
+  <tr>
+    <td>DBA 数据库：</td>
+    <td><?php echo isfun("dba_close");?></td>
+    <td>DBM 数据库：</td>
+    <td><?php echo isfun("dbmclose");?></td>
+  </tr>    
+  <tr>
+    <td>FilePro 数据库：</td>
+    <td><?php echo isfun("filepro_fieldcount");?></td>
+    <td>SyBase 数据库：</td>
+    <td><?php echo isfun("sybase_close");?></td>
+  </tr> 
+
+</table>
+
+<a name="w_performance" id="w_performance" style="position:relative;top:-60px;"></a>
+
+<form action="<?php echo $_SERVER[PHP_SELF]."#w_performance";?>" method="post">
+
+<!--服务器性能检测-->
+
+<table>
+
+  <tr><th colspan="5"><i class="fa fa-tachometer"></i> 服务器性能检测</th></tr>
+
+  <tr align="center">
+
+    <td width="19%">参照对象</td>
+
+    <td width="17%">整数运算能力检测<br />(1+1运算300万次)</td>
+
+    <td width="17%">浮点运算能力检测<br />(圆周率开平方300万次)</td>
+
+    <td width="17%">数据I/O能力检测<br />(读取10K文件1万次)</td>
+
+    <td width="30%">CPU信息</td>
+
+  </tr>
+  <tr align="center">
+    <td align="left">美国 LinodeVPS</td>
+    <td>0.357秒</td>
+    <td>0.802秒</td>
+    <td>0.023秒</td>
+    <td align="left">4 x Xeon L5520 @ 2.27GHz</td>
+  </tr> 
+
+  <tr align="center">
+
+    <td align="left">美国 PhotonVPS.com</td>
+
+    <td>0.431秒</td>
+
+    <td>1.024秒</td>
+
+    <td>0.034秒</td>
+
+    <td align="left">8 x Xeon E5520 @ 2.27GHz</td>
+
+  </tr>
+
+  <tr align="center">
+
+    <td align="left">德国 SpaceRich.com</td>
+
+    <td>0.421秒</td>
+
+    <td>1.003秒</td>
+
+    <td>0.038秒</td>
+
+    <td align="left">4 x Core i7 920 @ 2.67GHz</td>
+
+  </tr>
+
+  <tr align="center">
+
+    <td align="left">美国 RiZie.com</td>
+
+    <td>0.521秒</td>
+
+    <td>1.559秒</td>
+
+    <td>0.054秒</td>
+
+    <td align="left">2 x Pentium4 3.00GHz</td>
+
+  </tr>
+
+  <tr align="center">
+
+    <td align="left">埃及 CitynetHost.com</a></td>
+
+    <td>0.343秒</td>
+
+    <td>0.761秒</td>
+
+    <td>0.023秒</td>
+
+    <td align="left">2 x Core2Duo E4600 @ 2.40GHz</td>
+
+  </tr>
+
+  <tr align="center">
+
+    <td align="left">美国 IXwebhosting.com</td>
+
+    <td>0.535秒</td>
+
+    <td>1.607秒</td>
+
+    <td>0.058秒</td>
+
+    <td align="left">4 x Xeon E5530 @ 2.40GHz</td>
+
+  </tr>
+
+  <tr align="center">
+
+    <td>本台服务器</td>
+
+    <td><?php echo $valInt;?><br /><input class="btn" name="act" type="submit" value="整型测试" /></td>
+
+    <td><?php echo $valFloat;?><br /><input class="btn" name="act" type="submit" value="浮点测试" /></td>
+
+    <td><?php echo $valIo;?><br /><input class="btn" name="act" type="submit" value="IO测试" /></td>
+
+    <td></td>
+
+  </tr>
+
+</table>
+
+<input type="hidden" name="pInt" value="<?php echo $valInt;?>" />
+
+<input type="hidden" name="pFloat" value="<?php echo $valFloat;?>" />
+
+<input type="hidden" name="pIo" value="<?php echo $valIo;?>" />
+
+<a name="w_networkspeed" style="position:relative;top:-60px;"></a>
+<!--网络速度测试-->
+<table>
+	<tr><th colspan="3"><i class="fa fa-cloud-upload"></i> 网络速度测试</th></tr>
+  <tr>
+    <td width="19%" align="center"><input name="act" type="submit" class="btn" value="开始测试" />
+        <br />
+	向客户端传送2048KB数据	</td>
+    <td width="81%" align="center" >
+
+  <table align="center" width="550" border="0" cellspacing="0" cellpadding="0" style="box-shadow:0 0 0;">
+    <tr >
+    <td height="15" width="50">带宽</td>
+	<td height="15" width="50">1M</td>
+    <td height="15" width="50">2M</td>
+    <td height="15" width="50">3M</td>
+    <td height="15" width="50">4M</td>
+    <td height="15" width="50">5M</td>
+    <td height="15" width="50">6M</td>
+    <td height="15" width="50">7M</td>
+    <td height="15" width="50">8M</td>
+    <td height="15" width="50">9M</td>
+    <td height="15" width="50">10M</td>
+    </tr>
+   <tr>
+    <td colspan="11" class="suduk" ><table align="center" width="550" border="0" cellspacing="0" cellpadding="0" height="8" class="suduk" style="box-shadow:0 0 0;">
+    <tr>
+      <td class="sudu" style="border: 0px none; height: 6px;" width="<?php 
+	if(preg_match("/[^\d-., ]/",$speed))
+		{
+			echo "0";
+		}
+	else{
+			echo 550*($speed/11000);
+		} 
+		?>"></td>
+      <td class="suduk" style="border: 0px none; height: 6px;" width="<?php 
+	if(preg_match("/[^\d-., ]/",$speed))
+		{
+			echo "550";
+		}
+	else{
+			echo 550-550*($speed/11000);
+		} 
+		?>"></td>
+    </tr>
+    </table>
+   </td>
+  </tr>
+  </table>
+  <?php echo (isset($_GET['speed']))?"下载2048KB数据用时 <font color='#177BBE'>".$_GET['speed']."</font> 毫秒，下载速度："."<font color='#177BBE'>".$speed."</font>"." kb/s，需测试多次取平均值，超过10M直接看下载速度":"<font color='#177BBE'>&nbsp;未探测&nbsp;</font>" ?>
+
+    </td>
+  </tr>
+</table>
+
+<a name="w_MySQL" style="position:relative;top:-60px;"></a>
+
+<!--MySQL数据库连接检测-->
+
+<table>
+
+	<tr><th colspan="3"><i class="fa fa-link"></i> MySQL数据库连接检测</th></tr>
+
+  <tr>
+
+    <td width="85%">
+
+      地址：<input type="text" name="host" value="localhost" size="10" />
+
+      端口：<input type="text" name="port" value="3306" size="10" />
+
+      用户名：<input type="text" name="login" size="10" />
+
+      密码：<input type="password" name="password" size="10" />
+
+    </td>
+
+    <td width="15%">
+
+      <input class="btn" type="submit" name="act" value="MySQL检测" />
+
+    </td>
+
+  </tr>
+
+</table>
+
+  <?php
+
+  if ($_POST['act'] == 'MySQL检测') {
+
+  	if(function_exists("mysql_close")==1) {
+
+  		$link = @mysql_connect($host.":".$port,$login,$password);
+
+  		if ($link){
+
+  			echo "<script>alert('连接到MySql数据库正常')</script>";
+
+  		} else {
+
+  			echo "<script>alert('无法连接到MySql数据库！')</script>";
+
+  		}
+
+  	} else {
+
+  		echo "<script>alert('服务器不支持MySQL数据库！')</script>";
+
+  	}
+
+  }
+
+	?>
+	
+<a name="w_function" style="position:relative;top:-60px;"></a>
+
+<!--函数检测-->
+
+<table>
+
+	<tr><th colspan="3"><i class="fa fa-code"></i> 函数检测</th></tr>
+
+  <tr>
+
+    <td width="85%">
+
+      请输入您要检测的函数：
+
+      <input type="text" name="funName" size="50" />
+
+    </td>
+
+    <td width="15%">
+
+      <input class="btn" type="submit" name="act" align="right" value="函数检测" />
+
+    </td>
+
+  </tr>
+
+  <?php
+
+  if ($_POST['act'] == '函数检测') {
+
+  	echo "<script>alert('$funRe')</script>";
+
+  }
+
+  ?>
+
+</table>
+
+<a name="w_mail" style="position:relative;top:-60px;"></a>
+
+<!--邮件发送检测-->
+
+<table>
+
+  <tr><th colspan="3"><i class="fa fa-envelope-o "></i> 邮件发送检测</th></tr>
+
+  <tr>
+
+    <td width="85%">
+
+      请输入您要检测的邮件地址：
+
+      <input type="text" name="mailAdd" size="50" />
+
+    </td>
+
+    <td width="15%">
+
+    <input class="btn" type="submit" name="act" value="邮件检测" />
+
+    </td>
+
+  </tr>
+
+  <?php
+
+  if ($_POST['act'] == '邮件检测') {
+
+  	echo "<script>alert('$mailRe')</script>";
+
+  }
+
+  ?>
+
+</table>
+
+</form>
+
+
+</div>
+
+</body>
+
+</html>
